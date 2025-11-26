@@ -1,0 +1,83 @@
+from fastapi import FastAPI,Query,HTTPException
+from botocore.exceptions import ClientError
+import time, json, boto3, os
+from pyiceberg.exceptions import NoSuchNamespaceError,NamespaceAlreadyExistsError,TableAlreadyExistsError
+from pydantic import BaseModel
+from pyiceberg.exceptions import NoSuchTableError
+from pyiceberg.schema import Schema, NestedField
+import json,os,time
+from fastapi import FastAPI, Query,Body, HTTPException,UploadFile, File
+from pyiceberg.catalog import load_catalog
+from pyiceberg.expressions import GreaterThanOrEqual,EqualTo
+from decimal import Decimal
+from typing import List
+import json
+import decimal
+import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
+from mysql.connector import Error
+import pandas as pd
+import logging
+# from routers import bucket
+from routers import namespace
+from routers import table
+from core.mysql_client import MysqlCatalog
+
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI()
+
+# app.include_router(bucket.router)
+app.include_router(namespace.router)
+app.include_router(table.router)
+
+
+@app.get("/")
+def root():
+    tables_name = ["Order_fullfillment", ]
+
+    return {"message": "API is running",
+            "version": "1.0",
+            "Tables": tables_name
+            }
+
+
+
+@app.get("/table/schema")
+def table_schema(table_name: str = Query(..., description="Table name")):
+    catalog = MysqlCatalog()
+    try:
+        description = catalog.get_describe(table_name)
+        if not description:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error_code": "TABLE_NOT_FOUND",
+                    "message": f"Table '{table_name}' not found"
+                }
+            )
+        return {"schema": description}
+
+    except Error as e:
+        # Database-related error
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": "DB_ERROR",
+                "message": str(e)
+            }
+        )
+    except Exception as e:
+        # Unexpected error
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": "BAD_REQUEST",
+                "message": str(e)
+            }
+        )
+    finally:
+        catalog.close()
+

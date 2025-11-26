@@ -1,0 +1,188 @@
+"Table name :
+mo - masterorders
+ol - orderlineitems
+pdi - pickup_delivery_items
+
+data: {
+ bfl_status: false,
+ bfl: {
+   DEALID: """",
+   ORDERNO: """",
+   CUSTOMER_NAME: """",
+   EMIAMT: """",
+   TENURE_ADVANCE: """",
+   TENURE_GROSS: """",
+   LOANAMT_GROSS: """",
+   ADVEMIAMT: """",
+   PROCESSINGFEE: """",
+   DOWNPAYMENT: """",
+   FDD: """",
+   schemes: {
+     schemeId: """",
+     tenor: 0,
+     advEmi: 0,
+     schemeType: """",
+     downPayment: 0,
+     emiAmount: 0,
+     processingFee: 0,
+     charges: """",
+     advEmiAmt: 0,
+     marginMoney: 0,
+     manufactureId: """",
+     productCode: """",
+     totalScore: 0,
+     rateOfInterest: 0,
+     Scheme_Category: """",
+     Minimum_Loan_Amount: 0,
+     Minimum_EMI_Amount: 0,
+     Minimum_Amount_Financed: 0,
+     MaxTenInMonths: 0,
+     MinTenInMonths: 0,
+     Special_Scheme__c: """",
+     LTV_PERCENTAGE__C: 0,
+     dbd_charges_status: false,
+     dbd_charges: 0
+   }
+ },
+
+ order_oneassist_charges: mo.order_summary_details.order_adld_charges,
+ order_delivery_charges: mo.order_summary_details.order_delivery_charges,
+ order_discount: mo.order_summary_details.order_discount,
+ coupon_code: mo.voucher_details.coupon_code,
+ inst_discount: mo.payment_details.discount,
+ coupon_name: mo.voucher_details.coupon_name,
+ coupon_value: mo.voucher_details.coupon_value,
+
+ order_id: mo.sale_order_id,
+ date_added: mo.created_at,
+ current_status_date: se.row_updated_dttm,
+ order_status: mo.order_status,
+ order_status_color_code: mapping?.color_code,// dynamic
+
+ addressFields: {
+   payment_name: mo.shipment_address?.shipping_firstname,
+   shipping_name: mo.billing_address?.billing_firstname,
+   payment_postcode: mo.shipment_address?.shipping_pincode,
+   shipping_postcode: mo.billing_address?.billing_postcode,
+
+   payment_address: [
+     mo.shipment_address.shipping_full_address ||
+     mo.shipment_address?.shipping_address_line1,
+     mo.shipment_address?.shipping_address_line2,
+     mo.shipment_address?.shipping_city,
+     ${mo.shipment_address?.shipping_zone}-${mo.shipment_address?.shipping_pincode}
+   ],
+
+   shipping_address:
+     mo.billing_address?.billing_full_address || [
+       mo.billing_address?.billing_address_1,
+       mo.billing_address?.billing_address_2,
+       mo.billing_address?.billing_city,
+       ${mo.billing_address?.billing_zone}-${mo.billing_address?.billing_postcode}
+     ],
+
+   payment_country: mo.shipment_address?.shipping_country,
+   shipping_country: mo.billing_address?.billing_country,
+
+   payment_mobile_number: mo.shipment_address?.shipping_mobile_number,
+   shipping_mobile_number: mo.billing_address?.billing_mobile_number,
+
+   payment_gst_number: mo.shipment_address?.shipping_to_gstn_no
+ },
+
+ paymentInfo: {
+   inst_discount: mo.payment_details.discount,
+   payment_method: mo.payment_details?.payment_method,
+   payment_code: mo.payment_details?.payment_code,
+   payment_icon:
+     mo.payment_details?.paymentMode == 4
+       ? ""https://img.poorvika.com/common/payment_icon/pinelab.png""
+       : ""https://img.poorvika.com/common/payment_icon/payu.png""
+ },
+
+ contact_number: mo.cust_primary_contact,
+ awb_no: pdi.tracking_id,
+ courier_name: pdi.courier_name,
+ items: 0,// count by order_id
+
+ delivery_charges: mo.order_summary_details.order_delivery_charges,
+ order_value: mo.order_summary_details.order_total,
+ total: order_summary_details.order_total,
+ subtotal: order_summary_details.order_subtotal,
+
+ order_history: {
+   date: se.row_updated_dttm,
+   time: se.row_updated_dttm,// extract time only
+   comment: se.comments,
+   status: se.customer_status,
+   order_status_id: mapping?.order_status_id,// make dynamic
+   color_code: mapping?.color_code || ""32CD32""// make dynamic
+ },
+
+ pginstant_discount: payment_details.discount,
+
+ product: {
+   name: pdi.item_name,
+   order_id: mo.sale_order_id,
+   order_product_id: pdi.pickup_delivery_req_item_id,
+   item_code: pdi.item_code,
+   image: pdi.item_image,
+   slug: ol.slug,
+   mode: pdi.delivery_type,
+   pickup_store: pdi.inventory_location_branchname,
+   charges: mo.order_summary_details.order_delivery_charges,
+   quantity: pdi.item_qty,
+   price_format: pdi.item_price,// add .000 for format
+   price: pdi.item_price,
+   special_price: ol.special_price,
+   special_format: ol.special_price,// add .000 for format
+   total: order_summary_details.order_total,
+   pre_order: ol.preorder_response.preorder_flag,
+   preorder_price: ol.preorder_response.preorder_amount,
+   option_value: pdi.item_name,//trim variant from pdi.item_name,
+   oneassist_total: ol.insurance_details.warranty.plan_price + ol.insurance_details.insurance.plan_price,
+   ewprice: ol.insurance_details.warranty.plan_price,
+   adldprice: ol.insurance_details.insurance.plan_price,
+   date_modified: pdi.updated_at
+ },
+
+ cancel_order: false,// make dynamic
+ return_or_replace: false,// make dynamic
+
+ other_products: {
+   name: pdi.item_name,
+   order_id: mo.sale_order_id,
+   order_product_id: pdi.pickup_delivery_req_item_id,
+   item_code: pdi.item_code,
+   image: pdi.item_image,
+   slug: ol.slug,
+   mode: pdi.delivery_type,
+   pickup_store: pdi.inventory_location_branchname,
+   charges: mo.order_summary_details.order_delivery_charges,
+   quantity: pdi.item_qty,
+   price_format: pdi.item_price,// add .000 for format
+   price: pdi.item_price,
+   special_price: ol.special_price,
+   special_format: ol.special_price,// add .000 for format
+   total: order_summary_details.order_total,
+   pre_order: ol.preorder_response.preorder_flag,
+   preorder_price: ol.preorder_response.preorder_amount,
+   option_value: pdi.item_name,//trim variant from pdi.item_name
+   oneassist_total: ol.insurance_details.warranty.plan_price + ol.insurance_details.insurance.plan_price,
+   ewprice: ol.insurance_details.warranty.plan_price,
+   adldprice: ol.insurance_details.insurance.plan_price,
+   date_modified: pdi.updated_at
+ },
+
+ order_history_status: se.customer_status,
+ discount: order_summary_details.order_discount,
+ cart_total: order_summary_details.order_total,
+ order_product_policy: lineitems.product_policy,
+ return_replace_order: false,
+
+ order_date: mo.created_at,
+ cart_value: mo.order_summary_details.order_total,
+ invoice_url: mo.invoice_pdf,
+
+ courier_tracking_display_upto: """"
+}"

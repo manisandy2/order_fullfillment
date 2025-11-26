@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / compiled files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.eggs/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store # macOS specific
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Jupyter Notebook specific files
+.ipynb_checkpoints/
+
+# MyPy
+.mypy_cache/
+
+# Build artifacts
+dist/
+build/
+*.egg
+
+# Logs and temporary files
+*.log
+tmp/
+
+# Sensitive files (e.g., configuration with credentials)
+# Consider using environment variables for sensitive data instead of committing them.
+# .env # If you have a separate .env file for sensitive data, uncomment this.
