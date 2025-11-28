@@ -29,7 +29,7 @@ def create_bucket(bucket_name: str = Query(..., description="Name of the new R2 
     r2_client = get_r2_client()
     try:
         r2_client.create_bucket(Bucket=bucket_name)
-        return {"message": f"✅ Bucket '{bucket_name}' created successfully"}
+        return {"message": f"Bucket '{bucket_name}' created successfully"}
     except ClientError as e:
         return {"error": str(e)}
 

@@ -22,6 +22,9 @@ import logging
 # from routers import bucket
 from routers import namespace
 from routers import table
+from routers import insert_data
+from routers import filters
+
 from core.mysql_client import MysqlCatalog
 
 
@@ -32,6 +35,10 @@ app = FastAPI()
 # app.include_router(bucket.router)
 app.include_router(namespace.router)
 app.include_router(table.router)
+app.include_router(insert_data.router)
+app.include_router(filters.router)
+
+
 
 
 @app.get("/")

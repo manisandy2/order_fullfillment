@@ -2,12 +2,15 @@ import mysql.connector
 from dotenv import load_dotenv
 import os
 from mysql.connector import Error
-# import mysql
 
 load_dotenv()
-# print(os.getenv("HOST"))
 
 def mysql_connect():
+    """Connect to MySQL database using environment variables.
+    
+    Returns:
+        mysql.connector.MySQLConnection if successful, None otherwise
+    """
     print("Connecting to MySQL database...")
     # print("Host",os.getenv("HOST"))
     # print("USERNAME",os.getenv("USERNAME"))
@@ -19,7 +22,7 @@ def mysql_connect():
             user=os.getenv("USERNAME"),
             password=os.getenv("PASSWORD"),
             database=os.getenv("DATABASE"),
-            port=os.getenv("PORT")
+            port=int(os.getenv("PORT", 3306))
         )
         if conn.is_connected():
             print("MySQL connection established")
@@ -33,48 +36,110 @@ def mysql_connect():
 
 
 class MysqlCatalog:
-    def __init__(self):
+    """MySQL database catalog for querying table information."""
+    
+    def __init__(self) -> None:
+        """Initialize MySQL catalog connection."""
         self.conn = mysql_connect()
-        # self.cursor = self.conn.cursor()
+        if self.conn is None:
+            raise ConnectionError("Failed to connect to MySQL database")
         self.cursor = self.conn.cursor(dictionary=True)
 
 
-    def get_all_value(self,table_name):
-
-        self.cursor.execute(f"SELECT * FROM {table_name}")
+    def get_all_value(self, table_name: str) -> list:
+        """Retrieve all values from a table.
+        
+        Args:
+            table_name: Name of the table to query
+            
+        Returns:
+            List of all rows from the table
+        """
+        query = f"SELECT * FROM `{table_name}`"
+        self.cursor.execute(query)
         return self.cursor.fetchall()
 
-    def get_count(self,table_name:str):
+    def get_count(self, table_name: str) -> int:
+        """Get total count of rows in a table.
+        
+        Args:
+            table_name: Name of the table
+            
+        Returns:
+            Total number of rows in the table
+        """
         query = f"SELECT COUNT(*) AS total FROM `{table_name}`"
         self.cursor.execute(query)
         row = self.cursor.fetchone()
-        count = int(row[0])
-        return count
+        return int(row["total"])
 
 
-    def get_describe(self,table_name:str):
-
-        self.cursor.execute(f"DESCRIBE {table_name}")
-        # print("Describe:",self.cursor.fetchall())
-        # return self.cursor.fetchall()
-        result = self.cursor.fetchall()
-        # print("Describe:", result)
-        return result
-
-    def get_range(self,table_name:str, start: int, end: int):
-
-        self.cursor.execute(f"SELECT * FROM {table_name} LIMIT {start}, {end - start}")
+    def get_describe(self, table_name: str):
+        """Get table structure/schema description.
+        
+        Args:
+            table_name: Name of the table
+            
+        Returns:
+            List of column descriptions
+        """
+        query = f"DESCRIBE `{table_name}`"
+        self.cursor.execute(query)
         return self.cursor.fetchall()
 
-    def get_schema(self, table_name: str):
-        # Validate table name before using it in SQL (for safety)
+    def get_range(self, table_name: str, start: int, end: int):
+        """Retrieve a range of rows from a table.
+        
+        Args:
+            table_name: Name of the table
+            start: Starting offset
+            end: Ending offset (exclusive)
+            
+        Returns:
+            List of rows within the specified range
+        """
+        query = f"SELECT * FROM `{table_name}` LIMIT %s, %s"
+        self.cursor.execute(query, (start, end - start))
+        return self.cursor.fetchall()
+    
+    def get_range_ph_bi(self, table_name: str, start: int, end: int) -> list:
+        """Retrieve a range of order records with specific columns.
+        
+        Args:
+            table_name: Name of the table to query
+            start: Starting offset
+            end: Ending offset (exclusive)
+            
+        Returns:
+            List of order records within the specified range, or empty list on error
+        """
+        try:
+            query = f"""
+                SELECT
+                    *
+                FROM `{table_name}`
+                ORDER BY order_id ASC
+                LIMIT %s, %s
+            """
+            self.cursor.execute(query, (start, end - start))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            return []
 
+    def get_schema(self, table_name: str) -> list:
+        """Get the schema/structure of a table.
+        
+        Args:
+            table_name: Name of the table
+            
+        Returns:
+            List of dictionaries containing column information
+        """
         query = f"SHOW COLUMNS FROM `{table_name}`"
         self.cursor.execute(query)
-
         rows = self.cursor.fetchall()
-        # print(rows)
-        # If using dictionary cursor
+        
         schema = []
         for col in rows:
             # print(col)
@@ -86,10 +151,10 @@ class MysqlCatalog:
                 "default": col["Default"],
                 "extra": col["Extra"],  # auto_increment, etc.
             })
-
         return schema
 
-    def close(self):
+    def close(self) -> None:
+        """Close database connection and cursor."""
         if self.cursor:
             self.cursor.close()
         if self.conn:

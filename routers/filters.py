@@ -9,11 +9,13 @@ router = APIRouter(prefix="", tags=["filters"])
 
 @router.get("/filters/get")
 def filter_customer_phone(
-    namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
-    table_name: str = Query("transaction01", description="Iceberg table name"),
+    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+    # table_name: str = Query("transaction01", description="Iceberg table name"),
     customer_mobile: str | None = Query(None, description="Filter by customer_mobile__c")
 ):
     import datetime
+    # namespace,table_name = "pos_transactions01","transaction01"
+    namespace, table_name = "order_fulfillment", "master_order"
     """
     Inspect an existing Iceberg table's metadata.
     Optionally filter by partition values (bill_date, store_code, customer_mobile).
@@ -36,7 +38,7 @@ def filter_customer_phone(
     expr = None
     if customer_mobile:
         try:
-            cond = EqualTo("customer_mobile__c", int(customer_mobile))
+            cond = EqualTo("cust_primary_contact", str(customer_mobile))
         except:
             raise HTTPException(status_code=400, detail=f"Invalid filter value: {str(e)}")
         expr = cond
@@ -61,54 +63,54 @@ def filter_customer_phone(
     }
 
 
-@router.get("/filters/get")
-def filter_customer_phones_mysql(
-    namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
-    table_name: str = Query("transaction01", description="Iceberg table name"),
-    phone: str = Query(None, description="Filter by customer_mobile__c"),
-):
-    import datetime
-    start_time = time.perf_counter()
+# @router.get("/filters/get")
+# def filter_customer_phones_mysql(
+#     namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+#     table_name: str = Query("transaction01", description="Iceberg table name"),
+#     phone: str = Query(None, description="Filter by customer_mobile__c"),
+# ):
+#     import datetime
+#     start_time = time.perf_counter()
 
-    # Iceberg table identifier
-    table_identifier = f"{namespace}.{table_name}"
+#     # Iceberg table identifier
+#     table_identifier = f"{namespace}.{table_name}"
 
-    catalog = get_catalog_client()
+#     catalog = get_catalog_client()
 
-    # --- Load the table ---
-    try:
-        tbl = catalog.load_table(table_identifier)
-    except NoSuchTableError:
-        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading table: {str(e)}")
+#     # --- Load the table ---
+#     try:
+#         tbl = catalog.load_table(table_identifier)
+#     except NoSuchTableError:
+#         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error loading table: {str(e)}")
 
-    # --- Build Iceberg Filter ---
-    expr = None
-    if phone:
-        try:
-            expr = EqualTo("customer_mobile__c", int(phone))
-        except:
-            raise HTTPException(status_code=400, detail="Invalid phone number")
+#     # --- Build Iceberg Filter ---
+#     expr = None
+#     if phone:
+#         try:
+#             expr = EqualTo("customer_mobile__c", int(phone))
+#         except:
+#             raise HTTPException(status_code=400, detail="Invalid phone number")
 
-    # --- Perform scan ---
-    try:
-        scan = tbl.scan(row_filter=expr) if expr else tbl.scan()
-        df = scan.to_arrow().to_pandas()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
+#     # --- Perform scan ---
+#     try:
+#         scan = tbl.scan(row_filter=expr) if expr else tbl.scan()
+#         df = scan.to_arrow().to_pandas()
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
 
-    timeline = round(time.perf_counter() - start_time, 3)
+#     timeline = round(time.perf_counter() - start_time, 3)
 
-    # --- Response ---
-    return {
-        "namespace": namespace,
-        "table_name": table_name,
-        "phone": phone,
-        "count": len(df),
-        "sample_rows": df.head(10).to_dict(orient="records"),
-        "timeline_seconds": timeline
-    }
+#     # --- Response ---
+#     return {
+#         "namespace": namespace,
+#         "table_name": table_name,
+#         "phone": phone,
+#         "count": len(df),
+#         "sample_rows": df.head(10).to_dict(orient="records"),
+#         "timeline_seconds": timeline
+#     }
 
 @router.get("/filters/exact-date")
 def filter_exact_date(
@@ -274,88 +276,7 @@ def filter_id(
         "timeline_seconds": total_time
     }
 
-# @router.get("/filters/get-multi")
-# def filter_customer_phone_multi(
-#     namespaces: list[str] = Query(["pos_transactions01", "pos_transactions02", "pos_transactions03", "pos_transactions04"], description="List of Iceberg namespaces"),
-#     table_names: list[str] = Query(["transaction01", "transaction02", "transaction03", "transaction04"], description="List of Iceberg table names (same order as namespaces)"),
-#     customer_mobile: str | None = Query(None, description="Filter by customer_mobile__c"),
-# ):
-#     """
-#     Fetch records from multiple Iceberg tables (across namespaces)
-#     using a single filter condition (e.g., customer_mobile__c).
-#     Returns individual table metrics + total execution summary.
-#     """
-#
-#     import time
-#     import pandas as pd
-#     from pyiceberg.expressions import EqualTo
-#     from fastapi import HTTPException
-#
-#     catalog = get_catalog_client()
-#     all_results = []
-#     total_start = time.perf_counter()
-#
-#     # --- Iterate over all namespace-table pairs ---
-#     for idx, (ns, tbl_name) in enumerate(zip(namespaces, table_names)):
-#         table_identifier = f"{ns}.{tbl_name}"
-#         start_time = time.perf_counter()
-#
-#         try:
-#             tbl = catalog.load_table(table_identifier)
-#         except Exception as e:
-#             all_results.append({
-#                 "namespace": ns,
-#                 "table_name": tbl_name,
-#                 "error": str(e),
-#                 "count": 0,
-#                 "timeline_seconds": 0
-#             })
-#             continue
-#
-#         # Build filter condition
-#         expr = None
-#         if customer_mobile:
-#             try:
-#                 expr = EqualTo("customer_mobile__c", int(customer_mobile))
-#             except Exception as e:
-#                 raise HTTPException(status_code=400, detail=f"Invalid filter value: {str(e)}")
-#
-#         # Perform scan
-#         try:
-#             scan = tbl.scan(row_filter=expr) if expr else tbl.scan()
-#             df = scan.to_arrow().to_pandas()
-#         except Exception as e:
-#             all_results.append({
-#                 "namespace": ns,
-#                 "table_name": tbl_name,
-#                 "error": f"Error reading table: {str(e)}",
-#                 "count": 0,
-#                 "timeline_seconds": 0
-#             })
-#             continue
-#
-#         # Measure timing
-#         timeline = round(time.perf_counter() - start_time, 3)
-#
-#         all_results.append({
-#             "namespace": ns,
-#             "table_name": tbl_name,
-#             "record_count": len(df),
-#             "timeline_seconds": timeline,
-#             "sample_rows": df.head(3).to_dict(orient="records"),
-#         })
-#
-#     total_time = round(time.perf_counter() - total_start, 3)
-#
-#     # Combine results
-#     summary = {
-#         "total_namespaces": len(namespaces),
-#         "total_tables": len(table_names),
-#         "total_execution_time": total_time,
-#         "details": all_results
-#     }
-#
-#     return summary
+
 
 def process_table(namespace: str, table_name: str, customer_mobile: str | None):
     """Worker function for each table query (runs in parallel threads)."""
@@ -381,7 +302,7 @@ def process_table(namespace: str, table_name: str, customer_mobile: str | None):
         result["error"] = f"Error loading table: {str(e)}"
         return result
 
-    # 🔸 Build filter condition
+    # Build filter condition
     expr = None
     if customer_mobile:
         try:
@@ -390,7 +311,7 @@ def process_table(namespace: str, table_name: str, customer_mobile: str | None):
             result["error"] = f"Invalid filter value: {str(e)}"
             return result
 
-    # 🔸 Perform table scan
+    # Perform table scan
     try:
         scan = tbl.scan(row_filter=expr) if expr else tbl.scan()
         df = scan.to_arrow().to_pandas()

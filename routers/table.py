@@ -43,7 +43,7 @@ def create_transaction(
         NestedField(1,"order_id",StringType(),required=True),
         NestedField(2, "sale_order_id", StringType(),required=True),
         NestedField(3, "invoice_no", StringType()),
-        NestedField(4, "invoice_date", DateType()),
+        NestedField(4, "invoice_date", TimestampType()),
         NestedField(5, "invoice_reff_no", StringType()),
         NestedField(6, "invoice_reff_date", StringType()),
         NestedField(7, "channel", StringType()),
@@ -81,7 +81,7 @@ def create_transaction(
         NestedField(39, "oms_data_migration_status", IntegerType()),
         NestedField(40, "cust_id_update", IntegerType()),
         NestedField(41, "multi_invoice", StringType()),
-        NestedField(42, "updated_at_new", DateType()),
+        NestedField(42, "updated_at_new", TimestampType()),
     )
 
 
@@ -126,7 +126,7 @@ def create_transaction(
                 "write.target-file-size-bytes": "268435456"
             },
         )
-        print(f"✅ Created Iceberg table: {table_identifier}")
+        print(f" Created Iceberg table: {table_identifier}")
 
         # Step 6: Return confirmation
         return {
@@ -180,7 +180,6 @@ def delete_table(
     table_name: str = Query(..., description="Name of the table to drop"),
 
 ):
-
     catalog = get_catalog_client()
     full_table_name = f"{namespace}.{table_name}"
 
