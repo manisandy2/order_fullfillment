@@ -161,6 +161,6 @@ class MysqlCatalog:
             self.conn.close()
 
 
-# ss = MysqlCatalog()
-# print(ss.get_count(table_name="masterorders"))
-# print(ss.get_schema(table_name="masterorders"))
+ss = MysqlCatalog()
+print(ss.get_count(table_name="orderlineitems"))
+print(ss.get_schema(table_name="orderlineitems"))

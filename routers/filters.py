@@ -114,8 +114,8 @@ def filter_customer_phone(
 
 @router.get("/filters/exact-date")
 def filter_exact_date(
-    namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
-    table_name: str = Query("transaction01", description="Iceberg table name"),
+    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+    # table_name: str = Query("transaction01", description="Iceberg table name"),
     bill_date: str | None = Query(None, description="Filter by Bill_Date__c (YYYY-MM-DD)"),
     customer_mobile: int | None = Query(None, description="Filter by customer_mobile__c")
 ):
@@ -126,7 +126,7 @@ def filter_exact_date(
     Adds a timeline field to measure total execution time.
     """
     start_time = time.perf_counter()  # Start timeline measurement
-
+    namespace, table_name = "order_fulfillment", "master_order"
     table_identifier = f"{namespace}.{table_name}"
     catalog = get_catalog_client()
 
@@ -178,8 +178,8 @@ def filter_exact_date(
 
 @router.get("/filters/date-range")
 def filter_between_date_range(
-    namespace: str = Query("pos_transactions"),
-    table_name: str = Query("iceberg_with_partitioning"),
+    # namespace: str = Query("pos_transactions"),
+    # table_name: str = Query("iceberg_with_partitioning"),
     start_date: str = Query(..., description="YYYY-MM-DD"),
     end_date: str = Query(..., description="YYYY-MM-DD"),
     phone: str | None = Query(None, description="Filter by customer_mobile__c")
@@ -187,6 +187,7 @@ def filter_between_date_range(
     from pyiceberg.expressions import And, GreaterThanOrEqual, LessThanOrEqual, EqualTo
     import datetime
     start = time.perf_counter()
+    namespace, table_name = "order_fulfillment", "master_order"
 
     # validate dates
     try:
@@ -324,51 +325,52 @@ def process_table(namespace: str, table_name: str, customer_mobile: str | None):
     result["timeline_seconds"] = round(time.perf_counter() - start_time, 3)
     return result
 
-@router.get("/filters/get-multi")
-def filter_customer_phone_multi(
-    namespaces: list[str] = Query(["pos_transactions01", "pos_transactions02", "pos_transactions03", "pos_transactions04"], description="List of Iceberg namespaces"),
-    table_names: list[str] = Query(["transaction01", "transaction02", "transaction03", "transaction04"], description="List of Iceberg table names (same order as namespaces)"),
-    customer_mobile: str | None = Query(None, description="Filter by customer_mobile__c"),
-    max_threads: int = Query(4, description="Maximum number of parallel threads"),
-):
-    """
-    Multithreaded filter across multiple Iceberg namespaces and tables.
-    Executes all queries concurrently and returns per-table metrics.
-    """
-
-    total_start = time.perf_counter()
-    all_results = []
-
-    # --- Use ThreadPoolExecutor for parallel querying ---
-    with ThreadPoolExecutor(max_workers=max_threads) as executor:
-        futures = [
-            executor.submit(process_table, ns, tbl_name, customer_mobile)
-            for ns, tbl_name in zip(namespaces, table_names)
-        ]
-
-        # Collect completed results
-        for future in as_completed(futures):
-            all_results.append(future.result())
-
-    total_time = round(time.perf_counter() - total_start, 3)
-
-    return {
-        "total_namespaces": len(namespaces),
-        "total_tables": len(table_names),
-        "thread_count": max_threads,
-        "total_execution_time": total_time,
-        "details": all_results
-    }
+# @router.get("/filters/get-multi")
+# def filter_customer_phone_multi(
+#     # namespaces: list[str] = Query(["pos_transactions01", "pos_transactions02", "pos_transactions03", "pos_transactions04"], description="List of Iceberg namespaces"),
+#     # table_names: list[str] = Query(["transaction01", "transaction02", "transaction03", "transaction04"], description="List of Iceberg table names (same order as namespaces)"),
+#     customer_mobile: str | None = Query(None, description="Filter by customer_mobile__c"),
+#     max_threads: int = Query(4, description="Maximum number of parallel threads"),
+# ):
+#     """
+#     Multithreaded filter across multiple Iceberg namespaces and tables.
+#     Executes all queries concurrently and returns per-table metrics.
+#     """
+#
+#     total_start = time.perf_counter()
+#     all_results = []
+#     namespace, table_name = "order_fulfillment", "master_order"
+#     # --- Use ThreadPoolExecutor for parallel querying ---
+#     with ThreadPoolExecutor(max_workers=max_threads) as executor:
+#         futures = [
+#             executor.submit(process_table, ns, tbl_name, customer_mobile)
+#             for ns, tbl_name in zip(namespaces, table_names)
+#         ]
+#
+#         # Collect completed results
+#         for future in as_completed(futures):
+#             all_results.append(future.result())
+#
+#     total_time = round(time.perf_counter() - total_start, 3)
+#
+#     return {
+#         "total_namespaces": len(namespaces),
+#         "total_tables": len(table_names),
+#         "thread_count": max_threads,
+#         "total_execution_time": total_time,
+#         "details": all_results
+#     }
 
 @router.get("/filters/ph-count")
 def filter_customer_phones_mysql(
-    namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
-    table_name: str = Query("transaction01", description="Iceberg table name"),
+    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+    # table_name: str = Query("transaction01", description="Iceberg table name"),
     phone: str = Query(None, description="Filter by customer_mobile__c"),
 ):
     import datetime
     start_time = time.perf_counter()
     print(phone)
+    namespace, table_name = "order_fulfillment", "master_order"
 
     # Iceberg table identifier
     table_identifier = f"{namespace}.{table_name}"
