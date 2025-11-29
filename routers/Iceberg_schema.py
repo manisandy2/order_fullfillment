@@ -193,7 +193,7 @@ Pickup_delivery_items = [
     NestedField(140, "updated_at_new", TimestampType()),
 ]
 
-status_event = [
+Status_event = [
     NestedField(1,"status_event_id",StringType()),
     NestedField(2,"type",StringType()),
     NestedField(3,"channel",StringType()),
