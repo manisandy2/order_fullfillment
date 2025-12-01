@@ -364,7 +364,7 @@ def create(
         # table_name: str = Query(..., description="Table name"),
 ):
     namespace = "order_fulfillment"
-    table_name = "master_order"
+    table_name = "orderlineitems"
     # table_name = "iceberg_add_range_test"
     table_identifier = f"{namespace}.{table_name}"
 

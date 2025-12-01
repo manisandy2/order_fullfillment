@@ -162,5 +162,5 @@ class MysqlCatalog:
 
 
 ss = MysqlCatalog()
-print(ss.get_count(table_name="orderlineitems"))
-print(ss.get_schema(table_name="orderlineitems"))
+# print(ss.get_count(table_name="orderlineitems"))
+# print(ss.get_schema(table_name="orderlineitems"))
