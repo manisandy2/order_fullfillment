@@ -145,7 +145,7 @@ def get_tables(
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
 
-
+# masterOrder
 @router.post("/masterorders/create")
 def create(
         # namespace: str = Query("pos_transactions"),
@@ -215,6 +215,7 @@ def create(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
 
+# pickup_delivery_items
 @router.post("/pickup_delivery_items/create")
 def create(
         # namespace: str = Query("pos_transactions"),
@@ -287,6 +288,7 @@ def create(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
 
+# status_events
 @router.post("/status_events/create")
 def create(
         # namespace: str = Query("pos_transactions"),
@@ -358,6 +360,7 @@ def create(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
 
+# orderlineitems
 @router.post("/orderlineitems/create")
 def create(
         # namespace: str = Query("pos_transactions"),

@@ -102,7 +102,7 @@ class MysqlCatalog:
         self.cursor.execute(query, (start, end - start))
         return self.cursor.fetchall()
     
-    def get_range_ph_bi(self, table_name: str, start: int, end: int) -> list:
+    def get_master_order(self, table_name: str, start: int, end: int) -> list:
         """Retrieve a range of order records with specific columns.
         
         Args:
@@ -119,6 +119,81 @@ class MysqlCatalog:
                     *
                 FROM `{table_name}`
                 ORDER BY order_id ASC
+                LIMIT %s, %s
+            """
+            self.cursor.execute(query, (start, end - start))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            return []
+        
+    def get_pickup_delivery_items(self, table_name: str, start: int, end: int) -> list:
+        """Retrieve a range of order records with specific columns.
+        
+        Args:
+            table_name: Name of the table to query
+            start: Starting offset
+            end: Ending offset (exclusive)
+            
+        Returns:
+            List of order records within the specified range, or empty list on error
+        """
+        try:
+            query = f"""
+                SELECT
+                    *
+                FROM `{table_name}`
+                ORDER BY pickup_delivery_req_item_id ASC
+                LIMIT %s, %s
+            """
+            self.cursor.execute(query, (start, end - start))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            return []
+    
+    def get_status_events(self, table_name: str, start: int, end: int) -> list:
+        """Retrieve a range of order records with specific columns.
+        
+        Args:
+            table_name: Name of the table to query
+            start: Starting offset
+            end: Ending offset (exclusive)
+            
+        Returns:
+            List of order records within the specified range, or empty list on error
+        """
+        try:
+            query = f"""
+                SELECT
+                    *
+                FROM `{table_name}`
+                ORDER BY status_event_id ASC
+                LIMIT %s, %s
+            """
+            self.cursor.execute(query, (start, end - start))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            return []
+        
+    def get_orderlineitems(self, table_name: str, start: int, end: int) -> list:
+        """Retrieve a range of order records with specific columns.
+        
+        Args:
+            table_name: Name of the table to query
+            start: Starting offset
+            end: Ending offset (exclusive)
+            
+        Returns:
+            List of order records within the specified range, or empty list on error
+        """
+        try:
+            query = f"""
+                SELECT
+                    *
+                FROM `{table_name}`
+                ORDER BY line_item_id ASC
                 LIMIT %s, %s
             """
             self.cursor.execute(query, (start, end - start))
@@ -161,6 +236,9 @@ class MysqlCatalog:
             self.conn.close()
 
 
-ss = MysqlCatalog()
-# print(ss.get_count(table_name="orderlineitems"))
+# ss = MysqlCatalog()
+# print("masterorders",ss.get_count(table_name="masterorders"))
+# print("pickup_delivery_items",ss.get_count(table_name="pickup_delivery_items"))
+# print("status_events",ss.get_count(table_name="status_events"))
+# print("orderlineitems",ss.get_count(table_name="orderlineitems"))
 # print(ss.get_schema(table_name="orderlineitems"))
