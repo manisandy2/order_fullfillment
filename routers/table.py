@@ -3,7 +3,7 @@ from core.catalog_client import get_catalog_client
 from pyiceberg.schema import Schema
 from pyiceberg.partitioning import PartitionSpec,PartitionField
 from pyiceberg.transforms import YearTransform,MonthTransform
-from .Iceberg_schema import MasterSchema,Pickup_delivery_items,Status_event
+from .Iceberg_schema import MasterSchema,Pickup_delivery_items,Status_event,OrderLineItems
 from pyiceberg.types import LongType, StringType, DateType, DoubleType, NestedField, TimestampType, BooleanType, \
     IntegerType, FloatType
 from pyiceberg.catalog import NoSuchNamespaceError,NamespaceAlreadyExistsError,TableAlreadyExistsError,NoSuchTableError
@@ -301,8 +301,8 @@ def create(
 
     # Step 1: Define Iceberg schema
 
-    print("Schema obj:", MasterSchema)
-    status_ff_schema = Schema(fields=MasterSchema)
+    print("Schema obj:", Status_event)
+    status_ff_schema = Schema(fields=Status_event)
 
     # Step 2: Define partition spec
     transaction_partition_spec = PartitionSpec(
@@ -372,56 +372,14 @@ def create(
     table_identifier = f"{namespace}.{table_name}"
 
     # Step 1: Define Iceberg schema
-    order_ff_schema = Schema(
-        NestedField(1,"order_id",StringType(),required=True),
-        NestedField(2, "sale_order_id", StringType(),required=True),
-        NestedField(3, "invoice_no", StringType()),
-        NestedField(4, "invoice_date", TimestampType()),
-        NestedField(5, "invoice_reff_no", StringType()),
-        NestedField(6, "invoice_reff_date", StringType()),
-        NestedField(7, "channel", StringType()),
-        NestedField(8, "channel_medium", StringType()),
-        NestedField(9, "order_status", StringType()),
-        NestedField(10, "order_tag", StringType()),
-        NestedField(11, "order_inv_status", StringType()),
-        NestedField(12, "order_type", StringType()),
-        NestedField(13, "delivery_from", StringType()),
-        NestedField(14, "delivery_from_branchcode", StringType()),
-        NestedField(15, "billing_branch_code", StringType()),
-        NestedField(16, "cust_id", StringType()),
-        NestedField(17, "cust_primary_email", StringType()),
-        NestedField(18, "cust_primary_contact", StringType()),
-        NestedField(19, "cust_mobile", StringType()),
-        NestedField(20, "customer_address", StringType()),
-        NestedField(21, "shipment_address", StringType()),
-        NestedField(22, "latitude", FloatType()),
-        NestedField(23, "longitude", FloatType()),
-        NestedField(24, "billing_address", StringType()),
-        NestedField(25, "payment_details", StringType()),
-        NestedField(26, "refund_details", StringType()),
-        NestedField(27, "voucher_details", StringType()),
-        NestedField(28, "employee_sale_details", StringType()),
-        NestedField(29, "order_summary_details", StringType()),
-        NestedField(30, "other_details", StringType()),
-        NestedField(31, "service_details", StringType()),
-        NestedField(32, "invoice_pdf", StringType()),
-        NestedField(33, "lineitems", StringType()),
-        NestedField(34, "lineitem_status", StringType()),
-        NestedField(35, "created_at", TimestampType()),
-        NestedField(36, "created_by", StringType()),
-        NestedField(37, "updated_by", StringType()),
-        NestedField(38, "updated_at", TimestampType()),
-        NestedField(39, "oms_data_migration_status", IntegerType()),
-        NestedField(40, "cust_id_update", IntegerType()),
-        NestedField(41, "multi_invoice", StringType()),
-        NestedField(42, "updated_at_new", TimestampType()),
-    )
+    print("Schema obj:", OrderLineItems)
+    orderlineitems_ff_schema = Schema(fields=OrderLineItems)
 
 
     # Step 2: Define partition spec
     transaction_partition_spec = PartitionSpec(
         PartitionField(
-            source_id=order_ff_schema.find_field("created_at").field_id,
+            source_id=orderlineitems_ff_schema.find_field("created_at").field_id,
             field_id=2001,
             transform=YearTransform(),
             name="year",
@@ -443,7 +401,7 @@ def create(
     try:
         tbl = catalog.create_table(
             identifier=table_identifier,
-            schema=order_ff_schema,
+            schema=orderlineitems_ff_schema,
             partition_spec=transaction_partition_spec,
             properties={
                 "format-version": "2",  # <-- mandatory
@@ -455,7 +413,7 @@ def create(
                 # "write.sort.order": "month(Bill_Date__c) ASC, customerId,customer_mobile__c",
                 # "write.sort.order": "customerId,customer_mobile__c",
                 # "write.sort.order": "year ASC, order_id ASC",
-                "write.sort.order": "year ASC, sale_order_id ASC, invoice_no ASC, invoice_date ASC",
+                "write.sort.order": "created_at ASC",
                 "write.target-file-size-bytes": "268435456"
             },
         )
@@ -465,7 +423,7 @@ def create(
         return {
             "status": "created",
             "table": table_identifier,
-            "schema_fields": [f.name for f in order_ff_schema.fields],
+            "schema_fields": [f.name for f in orderlineitems_ff_schema.fields],
             # "partitions": [f.name for f in transaction_partition_spec.fields],
         }
 

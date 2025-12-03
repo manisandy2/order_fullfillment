@@ -117,8 +117,8 @@ def statusEvent_schema(record: dict):
         "pickup_delivery_req_item_id": (StringType(), pa.string(), True),
 
         # DECIMAL
-        "latitude": (DecimalType(10, 6), pa.decimal128(10, 6), False),
-        "longitude": (DecimalType(10, 6), pa.decimal128(10, 6), False),
+        "latitude": (FloatType(), pa.float64(), False),
+        "longitude": (FloatType(), pa.float64(), False),
 
         # TIMESTAMP FIELDS
         "invoice_date": (TimestampType(), pa.timestamp("ms"), False),

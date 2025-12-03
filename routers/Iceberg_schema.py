@@ -257,7 +257,7 @@ Status_event = [
     NestedField(57,"row_added_dttm",TimestampType()),
     NestedField(58,"shipment_tracking_id",StringType()),
     NestedField(59,"row_updated_dttm",TimestampType()),
-    NestedField(60,"oms_data_migration_status",StringType()),
+    NestedField(60,"oms_data_migration_status",IntegerType()),
     NestedField(61,"updated_at_new",TimestampType()),
 
 ]
