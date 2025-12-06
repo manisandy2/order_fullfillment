@@ -135,11 +135,6 @@ def process_chunk(chunk, arrow_schema):
         processed_rows.append(converted_row)
 
     return pa.Table.from_pylist(processed_rows, schema=arrow_schema)
-
-
-
-
-
 ######################################################################
 
 

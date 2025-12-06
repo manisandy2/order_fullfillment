@@ -3,19 +3,20 @@ from core.catalog_client import get_catalog_client
 from fastapi import APIRouter,HTTPException,Query
 from pyiceberg.expressions import And, EqualTo
 import time
+from pyiceberg.expressions import And, EqualTo,GreaterThan,LessThan
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 router = APIRouter(prefix="", tags=["filters"])
 
-@router.get("/filters/get")
-def filter_customer_phone(
+@router.get("/filters/get-master-order")
+def filter_customer_phone_master_order(
     # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
     # table_name: str = Query("transaction01", description="Iceberg table name"),
-    customer_mobile: str | None = Query(None, description="Filter by customer_mobile__c")
+    customer_mobile: str | None = Query(None, description="customer_mobile")
 ):
     import datetime
-    # namespace,table_name = "pos_transactions01","transaction01"
-    namespace, table_name = "order_fulfillment", "master_order"
+
+    namespace, table_name = "order_fulfillment", "masterorders"
     """
     Inspect an existing Iceberg table's metadata.
     Optionally filter by partition values (bill_date, store_code, customer_mobile).
@@ -62,6 +63,238 @@ def filter_customer_phone(
         "timeline_seconds": timeline
     }
 
+@router.get("/filters/get-orderlineitems")
+def filter_orderlineitems(
+    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+    # table_name: str = Query("transaction01", description="Iceberg table name"),
+    # customer_mobile: str | None = Query(None, description="Filter by customer_mobile__c")
+    line_item_id: str | None = Query(None, description="Filter by customer_mobile__c")
+):
+    import datetime
+
+    namespace, table_name = "order_fulfillment", "orderlineitems"
+    """
+    Inspect an existing Iceberg table's metadata.
+    Optionally filter by partition values (bill_date, store_code, customer_mobile).
+    Adds a timeline field to measure total execution time.
+    """
+    start_time = time.perf_counter()  # Start timeline measurement
+
+    table_identifier = f"{namespace}.{table_name}"
+    catalog = get_catalog_client()
+
+    # --- Load the table ---
+    try:
+        tbl = catalog.load_table(table_identifier)
+    except NoSuchTableError:
+        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading table: {str(e)}")
+
+    # --- Build filter expressions dynamically ---
+    expr = None
+    if line_item_id:
+        try:
+            cond = EqualTo("line_item_id", str(line_item_id))
+        except:
+            raise HTTPException(status_code=400, detail=f"Invalid filter value: {str(e)}")
+        expr = cond
+    # --- Perform scan ---
+    try:
+        scan = tbl.scan(row_filter=expr) if expr else tbl.scan()
+        df = scan.to_arrow().to_pandas()
+        # df = arrow_table.to_pandas().reset_index(drop=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
+
+    timeline = round(time.perf_counter() - start_time, 3)  # seconds (rounded to 3 decimals)
+
+    # --- Construct response ---
+    return {
+        "namespace": namespace,
+        "table_name": table_name,
+        "line_item_id": line_item_id,
+        "count": len(df),
+        "sample_rows": df.head(10).to_dict(orient="records"),
+        "timeline_seconds": timeline
+    }
+
+@router.get("/filters/get_pickup_delivery_items")
+def filter_pickup_delivery_items(
+    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+    # table_name: str = Query("transaction01", description="Iceberg table name"),
+    # customer_mobile: str | None = Query(None, description="Filter by customer_mobile__c")
+    pickup_delivery_req_item_id: str | None = Query(None, description="pickup_delivery_req_item_id")
+):
+    import datetime
+
+    namespace, table_name = "order_fulfillment", "pickup_delivery_items"
+    """
+    Inspect an existing Iceberg table's metadata.
+    Optionally filter by partition values (bill_date, store_code, customer_mobile).
+    Adds a timeline field to measure total execution time.
+    """
+    start_time = time.perf_counter()  # Start timeline measurement
+
+    table_identifier = f"{namespace}.{table_name}"
+    catalog = get_catalog_client()
+
+    # --- Load the table ---
+    try:
+        tbl = catalog.load_table(table_identifier)
+    except NoSuchTableError:
+        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading table: {str(e)}")
+
+    # --- Build filter expressions dynamically ---
+    expr = None
+    if pickup_delivery_req_item_id:
+        try:
+            cond = EqualTo("pickup_delivery_req_item_id", str(pickup_delivery_req_item_id))
+        except:
+            raise HTTPException(status_code=400, detail=f"Invalid filter value: {str(e)}")
+        expr = cond
+    # --- Perform scan ---
+    try:
+        scan = tbl.scan(row_filter=expr) if expr else tbl.scan()
+        df = scan.to_arrow().to_pandas()
+        # df = arrow_table.to_pandas().reset_index(drop=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
+
+    timeline = round(time.perf_counter() - start_time, 3)  # seconds (rounded to 3 decimals)
+
+    # --- Construct response ---
+    return {
+        "namespace": namespace,
+        "table_name": table_name,
+        "pickup_delivery_req_item_id": pickup_delivery_req_item_id,
+        "count": len(df),
+        "sample_rows": df.head(10).to_dict(orient="records"),
+        "timeline_seconds": timeline
+    }
+
+@router.get("/filters/get_status_event")
+def filter_status_event(
+    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+    # table_name: str = Query("transaction01", description="Iceberg table name"),
+    # customer_mobile: str | None = Query(None, description="Filter by customer_mobile__c")
+    status_events: str | None = Query(None, description="Filter by customer_mobile__c")
+):
+    import datetime
+
+    namespace, table_name = "order_fulfillment", "status_events"
+    """
+    Inspect an existing Iceberg table's metadata.
+    Optionally filter by partition values (bill_date, store_code, customer_mobile).
+    Adds a timeline field to measure total execution time.
+    """
+    start_time = time.perf_counter()  # Start timeline measurement
+
+    table_identifier = f"{namespace}.{table_name}"
+    catalog = get_catalog_client()
+
+    # --- Load the table ---
+    try:
+        tbl = catalog.load_table(table_identifier)
+    except NoSuchTableError:
+        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading table: {str(e)}")
+
+    # --- Build filter expressions dynamically ---
+    expr = None
+    if status_events:
+        try:
+            cond = EqualTo("status_event_id", str(status_events))
+        except:
+            raise HTTPException(status_code=400, detail=f"Invalid filter value: {str(e)}")
+        expr = cond
+    # --- Perform scan ---
+    try:
+        scan = tbl.scan(row_filter=expr) if expr else tbl.scan()
+        df = scan.to_arrow().to_pandas()
+        # df = arrow_table.to_pandas().reset_index(drop=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
+
+    timeline = round(time.perf_counter() - start_time, 3)  # seconds (rounded to 3 decimals)
+
+    # --- Construct response ---
+    return {
+        "namespace": namespace,
+        "table_name": table_name,
+        "status_events": status_events,
+        "count": len(df),
+        "sample_rows": df.head(10).to_dict(orient="records"),
+        "timeline_seconds": timeline
+    }
+
+# @router.get("/filters/get_status_event")
+# def filter_status_event(
+#     range_field: str | None = Query(None, description="Column name to apply range filter"),
+#     range_start: str | None = Query(None, description="Range start value"),
+#     range_end: str | None = Query(None, description="Range end value"),
+#     # ... other filters ...
+# ):
+#     namespace, table_name = "order_fulfillment", "status_events"
+#     start_time = time.perf_counter()
+#     table_identifier = f"{namespace}.{table_name}"
+#
+#     catalog = get_catalog_client()
+#     tbl = catalog.load_table(table_identifier)
+#
+#     filters = []
+#
+#     # ------------------------------------------------------------
+#     # 🔥 RANGE / BETWEEN FILTER
+#     # ------------------------------------------------------------
+#     if range_field:
+#         if range_start and range_end:
+#             filters.append(
+#                 And(
+#                     GreaterThanOrEqual(range_field, range_start),
+#                     LessThanOrEqual(range_field, range_end)
+#                 )
+#             )
+#         elif range_start:
+#             filters.append(GreaterThanOrEqual(range_field, range_start))
+#         elif range_end:
+#             filters.append(LessThanOrEqual(range_field, range_end))
+#         else:
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="range_field provided, but no range_start or range_end found."
+#             )
+#
+#     # ------------------------------------------------------------
+#     # Combine with existing filters
+#     # ------------------------------------------------------------
+#     final_expr = None
+#     if filters:
+#         final_expr = filters[0]
+#         for f in filters[1:]:
+#             final_expr = And(final_expr, f)
+#
+#     # ------------------------------------------------------------
+#     # Run scan
+#     # ------------------------------------------------------------
+#     scan = tbl.scan(row_filter=final_expr) if final_expr else tbl.scan()
+#     df = scan.to_arrow().to_pandas()
+#
+#     timeline = round(time.perf_counter() - start_time, 3)
+#
+#     return {
+#         "namespace": namespace,
+#         "table_name": table_name,
+#         "range_field": range_field,
+#         "range_start": range_start,
+#         "range_end": range_end,
+#         "count": len(df),
+#         "sample_rows": df.head(20).to_dict(orient="records"),
+#         "timeline_seconds": timeline
+#     }
 
 # @router.get("/filters/get")
 # def filter_customer_phones_mysql(

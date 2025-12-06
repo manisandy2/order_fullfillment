@@ -6,17 +6,18 @@ from datetime import datetime
 
 # ------------------ CONFIGURATION ------------------
 
-API_URL = "http://127.0.0.1:8000/insert-ph-direct-data"  # FastAPI endpoint
+API_URL = "http://127.0.0.1:8000/masterorder/insert-master-order-data"  # FastAPI endpoint
 
-BATCH_SIZE = 10
+BATCH_SIZE = 10000
 START_ROWS = 0
-TOTAL_ROWS = 200000
+TOTAL_ROWS = 261266
+chunk_size=1000
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "r2_transfer/r2_transfer_bucket_phone.log"
-FAILED_LOG_FILE = "r2_transfer/r2_transfer_failed_phone.log"
+SUCCESS_LOG_FILE = "logs/master_order.log"
+FAILED_LOG_FILE = "logs/master_order.log"
 
 # ------------------ LOGGING SETUP ------------------
 

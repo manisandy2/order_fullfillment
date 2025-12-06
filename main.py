@@ -25,7 +25,9 @@ from routers import table
 from routers import insert_data
 from routers import filters
 from routers import master_order
+from routers import master_order_w
 from routers import pickup_delivery_items
+from routers import pickup_delivery_items_w
 from routers import status_events
 from routers import orderlineitems
 
@@ -41,7 +43,9 @@ app.include_router(namespace.router)
 app.include_router(table.router)
 # app.include_router(insert_data.router)
 app.include_router(master_order.router)
+app.include_router(master_order_w.router)
 app.include_router(pickup_delivery_items.router)
+app.include_router(pickup_delivery_items_w.router)
 app.include_router(status_events.router)
 app.include_router(orderlineitems.router)
 app.include_router(filters.router)

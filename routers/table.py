@@ -2,10 +2,8 @@ from fastapi import APIRouter,Query,HTTPException
 from core.catalog_client import get_catalog_client
 from pyiceberg.schema import Schema
 from pyiceberg.partitioning import PartitionSpec,PartitionField
-from pyiceberg.transforms import YearTransform,MonthTransform
+from pyiceberg.transforms import YearTransform
 from .Iceberg_schema import MasterSchema,Pickup_delivery_items,Status_event,OrderLineItems
-from pyiceberg.types import LongType, StringType, DateType, DoubleType, NestedField, TimestampType, BooleanType, \
-    IntegerType, FloatType
 from pyiceberg.catalog import NoSuchNamespaceError,NamespaceAlreadyExistsError,TableAlreadyExistsError,NoSuchTableError
 
 router = APIRouter(prefix="", tags=["Tables"])
@@ -152,7 +150,76 @@ def create(
         # table_name: str = Query(..., description="Table name"),
 ):
     namespace = "order_fulfillment"
-    table_name = "master_order"
+    table_name = "masterorders"
+    # table_name = "iceberg_add_range_test"
+    table_identifier = f"{namespace}.{table_name}"
+
+    print("Schema obj:", MasterSchema)
+    order_ff_schema = Schema(fields=MasterSchema)
+
+    # Step 2: Define partition spec
+    transaction_partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=order_ff_schema.find_field("created_at").field_id,
+            field_id=2001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    # Step 3: Connect to catalog
+    catalog = get_catalog_client()
+
+    # Step 4: Ensure namespace exists
+    try:
+        catalog.load_namespace_properties(namespace)
+    except NoSuchNamespaceError:
+        catalog.create_namespace(namespace)
+    except NamespaceAlreadyExistsError:
+        pass
+
+    # Step 5: Create table
+    try:
+        tbl = catalog.create_table(
+            identifier=table_identifier,
+            schema=order_ff_schema,
+            partition_spec=transaction_partition_spec,
+            properties={
+                "format-version": "2",  # <-- mandatory
+                "table-type": "MERGE_ON_READ",  # <-- enable merge-on-read
+                "identifier-field-ids": "1", # order_id is PRIMARY KEY
+                "write.format.default": "parquet",
+                "write.parquet.compression-codec": "zstd",
+                "write.partition.path-style": "hierarchical",   # hierarchical & directory
+                # "write.sort.order": "month(Bill_Date__c) ASC, customerId,customer_mobile__c",
+                # "write.sort.order": "customerId,customer_mobile__c",
+                # "write.sort.order": "year ASC, order_id ASC",
+                "write.sort.order": "year ASC, sale_order_id ASC, invoice_no ASC, invoice_date ASC",
+                "write.target-file-size-bytes": "268435456"
+            },
+        )
+        print(f" Created Iceberg table: {table_identifier}")
+
+        # Step 6: Return confirmation
+        return {
+            "status": "created",
+            "table": table_identifier,
+            "schema_fields": [f.name for f in order_ff_schema.fields],
+            "partitions": [f.name for f in order_ff_schema.fields],
+        }
+
+    except TableAlreadyExistsError:
+        return {"status": "exists", "table": table_identifier}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+
+@router.post("/masterorders-w/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "masterorders_w"
     # table_name = "iceberg_add_range_test"
     table_identifier = f"{namespace}.{table_name}"
 
@@ -223,6 +290,78 @@ def create(
 ):
     namespace = "order_fulfillment"
     table_name = "pickup_delivery_items"
+    # table_name = "iceberg_add_range_test"
+    table_identifier = f"{namespace}.{table_name}"
+
+    # Step 1: Define Iceberg schema
+
+    print("Schema obj:", Pickup_delivery_items)
+    Pickup_delivery_items_schema = Schema(fields=Pickup_delivery_items)
+
+
+    # Step 2: Define partition spec
+    transaction_partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=Pickup_delivery_items_schema.find_field("invoice_date").field_id,
+            field_id=2001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    # Step 3: Connect to catalog
+    catalog = get_catalog_client()
+
+    # Step 4: Ensure namespace exists
+    try:
+        catalog.load_namespace_properties(namespace)
+    except NoSuchNamespaceError:
+        catalog.create_namespace(namespace)
+    except NamespaceAlreadyExistsError:
+        pass
+
+    # Step 5: Create table
+    try:
+        tbl = catalog.create_table(
+            identifier=table_identifier,
+            schema=Pickup_delivery_items_schema,
+            partition_spec=transaction_partition_spec,
+            properties={
+                "format-version": "2",  # <-- mandatory
+                "table-type": "MERGE_ON_READ",  # <-- enable merge-on-read
+                "identifier-field-ids": "1", # order_id is PRIMARY KEY
+                "write.format.default": "parquet",
+                "write.parquet.compression-codec": "zstd",
+                "write.partition.path-style": "hierarchical",   # hierarchical & directory
+                # "write.sort.order": "month(Bill_Date__c) ASC, customerId,customer_mobile__c",
+                # "write.sort.order": "customerId,customer_mobile__c",
+                # "write.sort.order": "year ASC, order_id ASC",
+                "write.sort.order": "year ASC, sale_order_id ASC, invoice_no ASC, invoice_date ASC",
+                "write.target-file-size-bytes": "268435456"
+            },
+        )
+        print(f" Created Iceberg table: {table_identifier}")
+
+        # Step 6: Return confirmation
+        return {
+            "status": "created",
+            "table": table_identifier,
+            "schema_fields": [f.name for f in Pickup_delivery_items_schema.fields],
+            "partitions": [f.name for f in Pickup_delivery_items_schema.fields],
+        }
+
+    except TableAlreadyExistsError:
+        return {"status": "exists", "table": table_identifier}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+
+@router.post("/pickup_delivery_items_w/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "pickup_delivery_items_w"
     # table_name = "iceberg_add_range_test"
     table_identifier = f"{namespace}.{table_name}"
 

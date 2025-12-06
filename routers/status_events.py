@@ -18,7 +18,7 @@ router = APIRouter(prefix="", tags=["Status Events"])
 def multi_within_mysql(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
-    chunk_size: int = Query(10, description="Chunk size for multithreading"),
+    chunk_size: int = Query(1000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "status_events"
@@ -257,51 +257,157 @@ def insert(
     }
 
 # with out mysql
+# @router.post("/status-events/insert-without-mysql")
+# def insert(
+#     rows: list = Body(..., description="List of pickup-delivery item rows"),
+# ):
+#     total_start = time.time()
+#     namespace, table_name = "order_fulfillment", "status_events"
+#
+#     # -------------------------------------------------
+#     # Step 1: Validate Input
+#     # -------------------------------------------------
+#     if not isinstance(rows, list) or len(rows) == 0:
+#         raise HTTPException(status_code=400, detail="Rows must be a non-empty list")
+#
+#     print(f"Received {len(rows)} rows")
+#
+#     # Print sample
+#     print("Sample Row:", rows[0])
+#
+#     # -------------------------------------------------
+#     # Step 2: Clean Rows
+#     # -------------------------------------------------
+#     clean_start = time.time()
+#     statusEvent_clean_rows(rows)
+#     clean_end = time.time()
+#     print(f"Row cleaning completed in {clean_end - clean_start:.2f} sec")
+#
+#     # -------------------------------------------------
+#     # Step 3: Infer Schema (Iceberg + Arrow)
+#     # -------------------------------------------------
+#     schema_start = time.time()
+#     iceberg_schema, arrow_schema = statusEvent_schema(rows[0])
+#     schema_end = time.time()
+#
+#     print("Inferred Iceberg Schema:", iceberg_schema)
+#     print("Inferred Arrow Schema:", arrow_schema)
+#
+#     print(f"Schema inference completed in {schema_end - schema_start:.2f} sec")
+#
+#     # -------------------------------------------------
+#     # Step 4: Convert Full Rows to Arrow Table
+#     # -------------------------------------------------
+#     arrow_start = time.time()
+#     try:
+#         arrow_table = pa.Table.from_pylist(rows, schema=arrow_schema)
+#         print(f"Arrow table created with {arrow_table.num_rows} rows")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Arrow conversion failed: {e}")
+#     arrow_end = time.time()
+#
+#     print(f"Arrow conversion completed in {arrow_end - arrow_start:.2f} sec")
+#
+#     # -------------------------------------------------
+#     # Step 5: Load Iceberg Table
+#     # -------------------------------------------------
+#     catalog_start = time.time()
+#     catalog = get_catalog_client()
+#     table_identifier = f"{namespace}.{table_name}"
+#
+#     try:
+#         tbl = catalog.load_table(table_identifier)
+#     except NoSuchTableError:
+#         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+#
+#     catalog_end = time.time()
+#     print(f"Catalog load completed in {catalog_end - catalog_start:.2f} sec")
+#
+#     # -------------------------------------------------
+#     # Step 6: Append to Iceberg Table
+#     # -------------------------------------------------
+#     append_start = time.time()
+#     try:
+#         tbl.append(arrow_table)
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500,
+#             detail={
+#                 "error_code": "ICEBERG_APPEND_FAILED",
+#                 "message": f"Data append failed for table {table_identifier}",
+#                 "exception": str(e),
+#             },
+#         )
+#     append_end = time.time()
+#
+#     print(f"Append completed in {append_end - append_start:.2f} sec")
+#
+#     total_end = time.time()
+#
+#     # -------------------------------------------------
+#     # Step 7: Final API Response
+#     # -------------------------------------------------
+#     return {
+#         "success": True,
+#         "message": "Data appended successfully",
+#         "rows_received": len(rows),
+#         "execution_times": {
+#             "clean_rows": round(clean_end - clean_start, 2),
+#             "schema_infer": round(schema_end - schema_start, 2),
+#             "arrow_convert": round(arrow_end - arrow_start, 2),
+#             "catalog_load": round(catalog_end - catalog_start, 2),
+#             "append": round(append_end - append_start, 2),
+#             "total_time": round(total_end - total_start, 2),
+#         },
+#     }
+#######################################################################################
+
 @router.post("/status-events/insert-without-mysql")
 def insert(
-    rows: list = Body(..., description="List of pickup-delivery item rows"),
+    rows: dict = Body(..., description="Status event row as a dictionary"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "status_events"
+    table_identifier = f"{namespace}.{table_name}"
 
     # -------------------------------------------------
-    # Step 1: Validate Input
+    # Step 1: Validate Input (Must be dict)
     # -------------------------------------------------
-    if not isinstance(rows, list) or len(rows) == 0:
-        raise HTTPException(status_code=400, detail="Rows must be a non-empty list")
+    if not isinstance(rows, dict):
+        raise HTTPException(status_code=400, detail="Input must be a dictionary")
 
-    print(f"Received {len(rows)} rows")
-
-    # Print sample
-    print("Sample Row:", rows[0])
+    print("Received Row:", rows)
 
     # -------------------------------------------------
-    # Step 2: Clean Rows
+    # Step 2: Clean Row (cleaner expects list → wrap it)
     # -------------------------------------------------
     clean_start = time.time()
-    statusEvent_clean_rows(rows)
+    cleaned = statusEvent_clean_rows([rows])
+    if cleaned:
+        rows = cleaned[0]
     clean_end = time.time()
+
     print(f"Row cleaning completed in {clean_end - clean_start:.2f} sec")
 
     # -------------------------------------------------
-    # Step 3: Infer Schema (Iceberg + Arrow)
+    # Step 3: Infer Schema (Pass dict)
     # -------------------------------------------------
     schema_start = time.time()
-    iceberg_schema, arrow_schema = statusEvent_schema(rows[0])
+    iceberg_schema, arrow_schema = statusEvent_schema(rows)
     schema_end = time.time()
 
     print("Inferred Iceberg Schema:", iceberg_schema)
     print("Inferred Arrow Schema:", arrow_schema)
-
     print(f"Schema inference completed in {schema_end - schema_start:.2f} sec")
 
     # -------------------------------------------------
-    # Step 4: Convert Full Rows to Arrow Table
+    # Step 4: Convert dict → Arrow Table
     # -------------------------------------------------
     arrow_start = time.time()
     try:
-        arrow_table = pa.Table.from_pylist(rows, schema=arrow_schema)
-        print(f"Arrow table created with {arrow_table.num_rows} rows")
+        # single dict → wrap into list
+        arrow_table = pa.Table.from_pylist([rows], schema=arrow_schema)
+        print("Arrow table created with 1 row")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Arrow conversion failed: {e}")
     arrow_end = time.time()
@@ -313,14 +419,13 @@ def insert(
     # -------------------------------------------------
     catalog_start = time.time()
     catalog = get_catalog_client()
-    table_identifier = f"{namespace}.{table_name}"
 
     try:
         tbl = catalog.load_table(table_identifier)
     except NoSuchTableError:
         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
-
     catalog_end = time.time()
+
     print(f"Catalog load completed in {catalog_end - catalog_start:.2f} sec")
 
     # -------------------------------------------------
@@ -349,8 +454,7 @@ def insert(
     # -------------------------------------------------
     return {
         "success": True,
-        "message": "Data appended successfully",
-        "rows_received": len(rows),
+        "message": "1 row appended successfully",
         "execution_times": {
             "clean_rows": round(clean_end - clean_start, 2),
             "schema_infer": round(schema_end - schema_start, 2),
@@ -360,5 +464,3 @@ def insert(
             "total_time": round(total_end - total_start, 2),
         },
     }
-#######################################################################################
-

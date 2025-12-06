@@ -68,7 +68,8 @@ class MysqlCatalog:
         Returns:
             Total number of rows in the table
         """
-        query = f"SELECT COUNT(*) AS total FROM `{table_name}`"
+        # query = f"SELECT COUNT(*) AS total FROM `{table_name}`"
+        query = f"SELECT COUNT(*) AS total FROM `{table_name}` WHERE oms_data_migration_status = 1"
         self.cursor.execute(query)
         row = self.cursor.fetchone()
         return int(row["total"])
@@ -102,6 +103,32 @@ class MysqlCatalog:
         self.cursor.execute(query, (start, end - start))
         return self.cursor.fetchall()
     
+    def get_master_order_w(self, table_name: str, start: int, end: int) -> list:
+        """Retrieve a range of order records with specific columns.
+        
+        Args:
+            table_name: Name of the table to query
+            start: Starting offset
+            end: Ending offset (exclusive)
+            
+        Returns:
+            List of order records within the specified range, or empty list on error
+        """
+        try:
+            query = f"""
+                SELECT
+                    *
+                FROM `{table_name}`
+                where oms_data_migration_status = 1
+                ORDER BY order_id ASC
+                LIMIT %s, %s
+            """
+            self.cursor.execute(query, (start, end - start))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            return []
+    
     def get_master_order(self, table_name: str, start: int, end: int) -> list:
         """Retrieve a range of order records with specific columns.
         
@@ -118,6 +145,7 @@ class MysqlCatalog:
                 SELECT
                     *
                 FROM `{table_name}`
+                # where oms_data_migration_status = 1
                 ORDER BY order_id ASC
                 LIMIT %s, %s
             """
@@ -143,6 +171,31 @@ class MysqlCatalog:
                 SELECT
                     *
                 FROM `{table_name}`
+                ORDER BY pickup_delivery_req_item_id ASC
+                LIMIT %s, %s
+            """
+            self.cursor.execute(query, (start, end - start))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            return []
+    def get_pickup_delivery_items_w(self, table_name: str, start: int, end: int) -> list:
+        """Retrieve a range of order records with specific columns.
+        
+        Args:
+            table_name: Name of the table to query
+            start: Starting offset
+            end: Ending offset (exclusive)
+            
+        Returns:
+            List of order records within the specified range, or empty list on error
+        """
+        try:
+            query = f"""
+                SELECT
+                    *
+                FROM `{table_name}`
+                where oms_data_migration_status = 1
                 ORDER BY pickup_delivery_req_item_id ASC
                 LIMIT %s, %s
             """
@@ -241,4 +294,9 @@ class MysqlCatalog:
 # print("pickup_delivery_items",ss.get_count(table_name="pickup_delivery_items"))
 # print("status_events",ss.get_count(table_name="status_events"))
 # print("orderlineitems",ss.get_count(table_name="orderlineitems"))
-# print(ss.get_schema(table_name="orderlineitems"))
+# print("masterorders_w",ss.get_count(table_name="masterorders_w"))
+# print("pickup_delivery_items_w",ss.get_count(table_name="pickup_delivery_items_w"))
+# # print("masterorders_view",ss.get_count(table_name="masterorders_view"))
+# print(ss.get_schema(table_name="pickup_delivery_items"))
+# print("#"*100)
+# print(ss.get_schema(table_name="pickup_delivery_items_w"))

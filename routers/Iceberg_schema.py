@@ -1,9 +1,4 @@
-from dataclasses import fields
-
-from pyarrow import Schema
-from pyiceberg.types import LongType, StringType, DateType, DoubleType, NestedField, TimestampType, BooleanType, \
-    IntegerType, FloatType,DecimalType
-
+from pyiceberg.types import *
 
 MasterSchema = [
     NestedField(1,"order_id",StringType(),required=True),

@@ -1,32 +1,27 @@
-from fastapi import APIRouter, HTTPException
-from core.mysql_client import MysqlCatalog
-from pyiceberg.schema import Schema
-from pyiceberg.types import *
-from fastapi import APIRouter,HTTPException,Query,Body
+from fastapi import APIRouter,Query,Body
 import time
+from core.mysql_client import MysqlCatalog
+from .masterOrderUtility import *
+from core.catalog_client import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
-# from .status_eventsUtility import *
-from .orderlineitemsUtility import *
-from .insert_data import process_chunk
-from core.catalog_client import get_catalog_client
 from pyiceberg.catalog import NoSuchTableError
-import pyarrow as pa
+from .insert_data import process_chunk
+from fastapi import status
 
+router = APIRouter(prefix="", tags=["MasterOrder_w"])
 
-router = APIRouter(prefix="", tags=["Order Line Items"])
-# pickup_delivery_items
-# multi thereading 
-@router.post("/orderlineitems/insert-multi-with-mysql")
-def multi_within_mysql(
+# insert-master-order-data
+#multithreading
+
+@router.post("/masterorder-w/insert-master-order-data")
+def insert(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
     chunk_size: int = Query(1000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
-
-    namespace, table_name = "order_fulfillment", "orderlineitems"
-    dbname = "orderlineitems"
-
+    namespace, table_name = "order_fulfillment", "masterorders_w"
+    dbname = "masterorders_w"
     mysql_creds = MysqlCatalog()
 
     # -------------------------------------------------
@@ -34,26 +29,35 @@ def multi_within_mysql(
     # -------------------------------------------------
     mysql_start = time.time()
     try:
-        rows = mysql_creds.get_orderlineitems(dbname, start_range, end_range)
-
+        rows = mysql_creds.get_master_order(dbname, start_range, end_range)
+        
 
         if not rows:
             raise HTTPException(status_code=400, detail="No data found in the given range.")
 
-        # print("sample Row:",rows[0])
+        print("Sample Row:", rows[0])
 
+        mysql_end = time.time()
+        print(f"MySQL fetch completed in {mysql_end - mysql_start:.2f} sec ({len(rows)} rows).")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
     
-
-    orderlineitems_clean_rows(rows)
+    
+    masterOrder_clean_rows(rows)
+    
     # -------------------------------------------------
     # Step 2: Infer Iceberg + Arrow Schema
     # -------------------------------------------------
-
-    iceberg_schema, arrow_schema = orderlineitems_schema(rows[0])
+    schema_start = time.time()
+    iceberg_schema, arrow_schema = masterorder_schema(rows[0])
     
+
+    # print("iceberg_schema",iceberg_schema)
+    # print("arrow_schema",arrow_schema)
+
+    schema_end = time.time()
+    print(f"Schema inference completed in {schema_end - schema_start:.2f} sec")
 
     # -------------------------------------------------
     # Step 3: Convert Rows to Arrow Tables (Multithreaded)
@@ -127,8 +131,8 @@ def multi_within_mysql(
         "rows_fetched": len(rows),
         "chunks": len(chunks),
         "execution_times": {
-        #     "mysql_fetch": round(mysql_end - mysql_start, 2),
-        #     "schema_infer": round(schema_end - schema_start, 2),
+            "mysql_fetch": round(mysql_end - mysql_start, 2),
+            "schema_infer": round(schema_end - schema_start, 2),
             "arrow_convert": round(arrow_end - arrow_start, 2),
             "catalog_load": round(catalog_end - catalog_start, 2),
             "append_refresh": round(append_end - append_start, 2),
@@ -136,17 +140,14 @@ def multi_within_mysql(
         },
     }
 
-
-# single core
-# pickup-delivery-items
-@router.post("/orderlineitems/insert-single-within-mysql")
-def insert_single_within_mysql(
+@router.post("/masterorder-w/insert-single-within-mysql")
+def insert_pickup_delivery_items(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
 ):
     total_start = time.time()
-    namespace, table_name = "order_fulfillment", "orderlineitems"
-    dbname = "orderlineitems"
+    namespace, table_name = "order_fulfillment", "masterorders_w"
+    dbname = "masterorders_w"
     mysql_creds = MysqlCatalog()
 
     # -------------------------------------------------
@@ -154,7 +155,7 @@ def insert_single_within_mysql(
     # -------------------------------------------------
     mysql_start = time.time()
     try:
-        rows = mysql_creds.get_orderlineitems(dbname, start_range, end_range)
+        rows = mysql_creds.get_pickup_delivery_items(dbname, start_range, end_range)
         if not rows:
             raise HTTPException(status_code=400, detail="No data found in the given range.")
 
@@ -169,14 +170,14 @@ def insert_single_within_mysql(
     # -------------------------------------------------
     # Step 2: Clean Rows
     # -------------------------------------------------
-    orderlineitems_clean_rows(rows)
+    masterOrder_clean_rows(rows)
     print("Cleaned Rows Sample:", rows[:2])
 
     # -------------------------------------------------
     # Step 3: Infer Schema
     # -------------------------------------------------
     schema_start = time.time()
-    iceberg_schema, arrow_schema = orderlineitems_schema(rows[0])
+    iceberg_schema, arrow_schema = masterorder_schema(rows[0])
 
     print("Inferred Iceberg Schema:", iceberg_schema)
     print("Inferred Arrow Schema:", arrow_schema)
@@ -254,12 +255,13 @@ def insert_single_within_mysql(
     }
 
 # with out mysql
-# @router.post("/orderlineitems/insert-without-mysql")
-# def insert_with_mysql(
+# @router.post("/masterorder/insert-without-mysql")
+# def insert_without_mysql(
 #     rows: list = Body(..., description="List of pickup-delivery item rows"),
+#     # rows: dict = Body(..., description="List of pickup-delivery item rows"),
 # ):
 #     total_start = time.time()
-#     namespace, table_name = "order_fulfillment", "orderlineitems"
+#     namespace, table_name = "order_fulfillment", "masterorders"
 #
 #     # -------------------------------------------------
 #     # Step 1: Validate Input
@@ -276,7 +278,7 @@ def insert_single_within_mysql(
 #     # Step 2: Clean Rows
 #     # -------------------------------------------------
 #     clean_start = time.time()
-#     orderlineitems_clean_rows(rows)
+#     masterOrder_clean_rows(rows)
 #     clean_end = time.time()
 #     print(f"Row cleaning completed in {clean_end - clean_start:.2f} sec")
 #
@@ -284,7 +286,7 @@ def insert_single_within_mysql(
 #     # Step 3: Infer Schema (Iceberg + Arrow)
 #     # -------------------------------------------------
 #     schema_start = time.time()
-#     iceberg_schema, arrow_schema = orderlineitems_schema(rows[0])
+#     iceberg_schema, arrow_schema = masterorder_schema(rows[0])
 #     schema_end = time.time()
 #
 #     print("Inferred Iceberg Schema:", iceberg_schema)
@@ -357,74 +359,184 @@ def insert_single_within_mysql(
 #             "total_time": round(total_end - total_start, 2),
 #         },
 #     }
-#######################################################################################
 
-@router.post("/orderlineitems/insert-without-mysql")
+# @router.post("/masterorder/insert-without-mysql")
+# def insert_without_mysql(
+#     row: dict = Body(..., description="Single pickup-delivery item row"),
+# ):
+#     total_start = time.time()
+#     namespace, table_name = "order_fulfillment", "masterorders"
+#     table_identifier = f"{namespace}.{table_name}"
+#
+#     # -------------------------------------------------
+#     # Step 1: Validate Input
+#     # -------------------------------------------------
+#     if not isinstance(row, dict):
+#         raise HTTPException(status_code=400, detail="Input must be a dictionary")
+#
+#     print("Received Row:", row)
+#
+#     # -------------------------------------------------
+#     # Step 2: Clean Row
+#     # -------------------------------------------------
+#     clean_start = time.time()
+#
+#     try:
+#         cleaned = masterOrder_clean_rows([row])     # pass as list internally
+#         if cleaned:
+#             row = cleaned[0]
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Row cleaning failed: {e}")
+#
+#     clean_end = time.time()
+#
+#     # -------------------------------------------------
+#     # Step 3: Infer Schema (Iceberg + Arrow)
+#     # -------------------------------------------------
+#     schema_start = time.time()
+#
+#     try:
+#         iceberg_schema, arrow_schema = masterorder_schema(row)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Schema inference failed: {e}")
+#
+#     schema_end = time.time()
+#
+#     # -------------------------------------------------
+#     # Step 4: Convert to Arrow Table (single row)
+#     # -------------------------------------------------
+#     arrow_start = time.time()
+#
+#     try:
+#         arrow_table = pa.Table.from_pylist([row], schema=arrow_schema)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Arrow conversion failed: {e}")
+#
+#     arrow_end = time.time()
+#
+#     # -------------------------------------------------
+#     # Step 5: Load Iceberg Table
+#     # -------------------------------------------------
+#     catalog_start = time.time()
+#     catalog = get_catalog_client()
+#
+#     try:
+#         tbl = catalog.load_table(table_identifier)
+#     except NoSuchTableError:
+#         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Catalog load failed: {e}")
+#
+#     catalog_end = time.time()
+#
+#     # -------------------------------------------------
+#     # Step 6: Append to Iceberg Table
+#     # -------------------------------------------------
+#     append_start = time.time()
+#
+#     try:
+#         tbl.append(arrow_table)
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500,
+#             detail={
+#                 "error_code": "ICEBERG_APPEND_FAILED",
+#                 "message": f"Append failed for table {table_identifier}",
+#                 "exception": str(e),
+#             },
+#         )
+#
+#     append_end = time.time()
+#
+#     total_end = time.time()
+#
+#     return {
+#         "success": True,
+#         "message": "1 row appended successfully",
+#         "execution_times": {
+#             "clean_rows": round(clean_end - clean_start, 2),
+#             "schema_infer": round(schema_end - schema_start, 2),
+#             "arrow_convert": round(arrow_end - arrow_start, 2),
+#             "catalog_load": round(catalog_end - catalog_start, 2),
+#             "append": round(append_end - append_start, 2),
+#             "total_time": round(total_end - total_start, 2),
+#         },
+#     }
+
+@router.post("/masterorder-w/insert-without-mysql")
 def insert_without_mysql(
-    rows: dict = Body(..., description="Pickup-delivery item row as dictionary"),
+    row: dict = Body(..., description="Single pickup-delivery item row"),
 ):
-    total_start = time.time()
-    namespace, table_name = "order_fulfillment", "orderlineitems"
+
+    namespace, table_name = "order_fulfillment", "masterorders_w"
     table_identifier = f"{namespace}.{table_name}"
 
     # -------------------------------------------------
     # Step 1: Validate Input
     # -------------------------------------------------
-    if not isinstance(rows, dict):
+    if not isinstance(row, dict):
         raise HTTPException(status_code=400, detail="Input must be a dictionary")
 
-    print("Received Row:", rows)
+    print("Received Row:", row)
 
     # -------------------------------------------------
     # Step 2: Clean Row
     # -------------------------------------------------
-    clean_start = time.time()
-    # clean function expects list → wrap in list
-    result = orderlineitems_clean_rows([rows])
 
-    if result:
-        rows = result[0]
-    clean_end = time.time()
 
-    print(f"Row cleaning completed in {clean_end - clean_start:.2f} sec")
-
-    # -------------------------------------------------
-    # Step 3: Infer Schema
-    # -------------------------------------------------
-    schema_start = time.time()
-    iceberg_schema, arrow_schema = orderlineitems_schema(rows)
-    schema_end = time.time()
-
-    print("Inferred Iceberg Schema:", iceberg_schema)
-    print("Inferred Arrow Schema:", arrow_schema)
-
-    # -------------------------------------------------
-    # Step 4: Convert to Arrow Table (single dict)
-    # -------------------------------------------------
-    arrow_start = time.time()
     try:
-        arrow_table = pa.Table.from_pylist([rows], schema=arrow_schema)
-        print(f"Arrow table created with 1 row")
+        cleaned = masterOrder_clean_rows([row])     # pass as list internally
+        if cleaned:
+            row = cleaned[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Row cleaning failed: {e}")
+
+
+
+    # -------------------------------------------------
+    # Step 3: Infer Schema (Iceberg + Arrow)
+    # -------------------------------------------------
+
+
+    try:
+        iceberg_schema, arrow_schema = masterorder_schema(row)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Schema inference failed: {e}")
+
+
+
+    # -------------------------------------------------
+    # Step 4: Convert to Arrow Table (single row)
+    # -------------------------------------------------
+
+
+    try:
+        arrow_table = pa.Table.from_pylist([row], schema=arrow_schema)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Arrow conversion failed: {e}")
-    arrow_end = time.time()
+
+
 
     # -------------------------------------------------
     # Step 5: Load Iceberg Table
     # -------------------------------------------------
-    catalog_start = time.time()
+
     catalog = get_catalog_client()
 
     try:
         tbl = catalog.load_table(table_identifier)
     except NoSuchTableError:
         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
-    catalog_end = time.time()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Catalog load failed: {e}")
+
+
 
     # -------------------------------------------------
     # Step 6: Append to Iceberg Table
     # -------------------------------------------------
-    append_start = time.time()
+
+
     try:
         tbl.append(arrow_table)
     except Exception as e:
@@ -436,22 +548,11 @@ def insert_without_mysql(
                 "exception": str(e),
             },
         )
-    append_end = time.time()
 
-    total_end = time.time()
 
-    # -------------------------------------------------
-    # Step 7: Final Response
-    # -------------------------------------------------
+
     return {
+        "status_code":201,
         "success": True,
-        "message": "1 row appended successfully",
-        "execution_times": {
-            "clean_rows": round(clean_end - clean_start, 2),
-            "schema_infer": round(schema_end - schema_start, 2),
-            "arrow_convert": round(arrow_end - arrow_start, 2),
-            "catalog_load": round(catalog_end - catalog_start, 2),
-            "append": round(append_end - append_start, 2),
-            "total_time": round(total_end - total_start, 2),
-        },
+        "message": "successfully",
     }
