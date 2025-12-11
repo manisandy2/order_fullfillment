@@ -10,7 +10,7 @@ API_URL = "http://127.0.0.1:8000/orderlineitems/insert-multi-with-mysql"  # Fast
 
 BATCH_SIZE = 10000
 START_ROWS = 0
-TOTAL_ROWS = 5755732
+TOTAL_ROWS = 197100
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2

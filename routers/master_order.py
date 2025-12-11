@@ -30,13 +30,20 @@ def insert(
     mysql_start = time.time()
     try:
         rows = mysql_creds.get_master_order(dbname, start_range, end_range)
-        
+        print("masterorders",mysql_creds.get_count(dbname))
 
         if not rows:
             raise HTTPException(status_code=400, detail="No data found in the given range.")
 
         print("Sample Row:", rows[0])
+        print("*"*100)
+        print("oms_data_migration_status:", rows[0]["oms_data_migration_status"])
+        if rows[0]["oms_data_migration_status"] == 1:
+            print("is One :",rows[0]["oms_data_migration_status"])
+        else:
+            print("is Zero :",rows[0]["oms_data_migration_status"])
 
+        print("*" * 100)
         mysql_end = time.time()
         print(f"MySQL fetch completed in {mysql_end - mysql_start:.2f} sec ({len(rows)} rows).")
 

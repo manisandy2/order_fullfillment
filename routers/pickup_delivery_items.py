@@ -24,6 +24,7 @@ def multi_within_mysql(
     namespace, table_name = "order_fulfillment", "pickup_delivery_items"
     dbname = "pickup_delivery_items"
     mysql_creds = MysqlCatalog()
+    print("pickup_delivery_items", mysql_creds.get_count(dbname))
 
     # -------------------------------------------------
     # Step 1: Fetch and Convert MySQL Data

@@ -6,17 +6,18 @@ from datetime import datetime
 
 # ------------------ CONFIGURATION ------------------
 
-API_URL = "http://127.0.0.1:8000/status-events/insert-multi-with-mysql"  # FastAPI endpoint
+API_URL = "http://127.0.0.1:8000/masterorder-w/insert-master-order-data"  # FastAPI endpoint
 
 BATCH_SIZE = 10000
 START_ROWS = 0
-TOTAL_ROWS = 3850480
+TOTAL_ROWS = 197011
+chunk_size=10000
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/status-events.log"
-FAILED_LOG_FILE = "logs/status-events.log"
+SUCCESS_LOG_FILE = "logs/master_order_w.log"
+FAILED_LOG_FILE = "logs/master_order_w.log"
 
 # ------------------ LOGGING SETUP ------------------
 

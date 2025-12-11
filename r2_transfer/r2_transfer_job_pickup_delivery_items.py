@@ -10,13 +10,13 @@ API_URL = "http://127.0.0.1:8000/pickup-delivery-items/insert-multi-with-mysql" 
 
 BATCH_SIZE = 10000
 START_ROWS = 0
-TOTAL_ROWS = 361500
+TOTAL_ROWS = 90
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "r2_transfer/pickup-delivery-items.log"
-FAILED_LOG_FILE = "r2_transfer/pickup-delivery-items.log"
+SUCCESS_LOG_FILE = "logs/pickup-delivery-items.log"
+FAILED_LOG_FILE = "logs/pickup-delivery-items.log"
 
 # ------------------ LOGGING SETUP ------------------
 

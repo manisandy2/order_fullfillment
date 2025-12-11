@@ -30,6 +30,7 @@ from routers import pickup_delivery_items
 from routers import pickup_delivery_items_w
 from routers import status_events
 from routers import orderlineitems
+from routers import column
 
 from core.mysql_client import MysqlCatalog
 
@@ -49,6 +50,7 @@ app.include_router(pickup_delivery_items_w.router)
 app.include_router(status_events.router)
 app.include_router(orderlineitems.router)
 app.include_router(filters.router)
+app.include_router(column.router)
 
 
 

@@ -29,28 +29,34 @@ def insert(
     # -------------------------------------------------
     mysql_start = time.time()
     try:
-        rows = mysql_creds.get_master_order(dbname, start_range, end_range)
-        
+        rows = mysql_creds.get_master_order_w(dbname, start_range, end_range)
+        print("masterorders_w", mysql_creds.get_count(dbname))
 
         if not rows:
             raise HTTPException(status_code=400, detail="No data found in the given range.")
 
-        print("Sample Row:", rows[0])
+        # print("Sample Row:", rows[0])
+
 
         mysql_end = time.time()
         print(f"MySQL fetch completed in {mysql_end - mysql_start:.2f} sec ({len(rows)} rows).")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
-    
-    
-    masterOrder_clean_rows(rows)
+
+    oms_rows = [row for row in rows if row.get("oms_data_migration_status") == 1]
+
+    if not oms_rows:
+        raise HTTPException(status_code=400, detail="oms_data_migration_status not found")
+
+
+    masterOrder_clean_rows(oms_rows)
     
     # -------------------------------------------------
     # Step 2: Infer Iceberg + Arrow Schema
     # -------------------------------------------------
     schema_start = time.time()
-    iceberg_schema, arrow_schema = masterorder_schema(rows[0])
+    iceberg_schema, arrow_schema = masterorder_schema(oms_rows[0])
     
 
     # print("iceberg_schema",iceberg_schema)
@@ -63,7 +69,7 @@ def insert(
     # Step 3: Convert Rows to Arrow Tables (Multithreaded)
     # -------------------------------------------------
     arrow_start = time.time()
-    chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
+    chunks = [rows[i:i + chunk_size] for i in range(0, len(oms_rows), chunk_size)]
 
     # print("chunks",chunks)
     arrow_tables = []
@@ -223,6 +229,7 @@ def insert_pickup_delivery_items(
         tbl.append(arrow_table)
 
     except Exception as e:
+        print(f"Appending full table ({arrow_table.num_rows} rows)")
         raise HTTPException(
             status_code=500,
             detail={

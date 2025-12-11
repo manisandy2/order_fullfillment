@@ -145,7 +145,7 @@ class MysqlCatalog:
                 SELECT
                     *
                 FROM `{table_name}`
-                # where oms_data_migration_status = 1
+                where oms_data_migration_status = 1
                 ORDER BY order_id ASC
                 LIMIT %s, %s
             """
@@ -221,6 +221,7 @@ class MysqlCatalog:
                 SELECT
                     *
                 FROM `{table_name}`
+                where oms_data_migration_status = 1
                 ORDER BY status_event_id ASC
                 LIMIT %s, %s
             """
@@ -246,6 +247,7 @@ class MysqlCatalog:
                 SELECT
                     *
                 FROM `{table_name}`
+                where oms_data_migration_status = 1
                 ORDER BY line_item_id ASC
                 LIMIT %s, %s
             """
@@ -289,14 +291,14 @@ class MysqlCatalog:
             self.conn.close()
 
 
-# ss = MysqlCatalog()
-# print("masterorders",ss.get_count(table_name="masterorders"))
-# print("pickup_delivery_items",ss.get_count(table_name="pickup_delivery_items"))
-# print("status_events",ss.get_count(table_name="status_events"))
-# print("orderlineitems",ss.get_count(table_name="orderlineitems"))
-# print("masterorders_w",ss.get_count(table_name="masterorders_w"))
-# print("pickup_delivery_items_w",ss.get_count(table_name="pickup_delivery_items_w"))
-# # print("masterorders_view",ss.get_count(table_name="masterorders_view"))
+ss = MysqlCatalog()
+print("masterorders",ss.get_count(table_name="masterorders"))
+print("pickup_delivery_items",ss.get_count(table_name="pickup_delivery_items"))
+print("status_events",ss.get_count(table_name="status_events"))
+print("orderlineitems",ss.get_count(table_name="orderlineitems"))
+print("masterorders_w",ss.get_count(table_name="masterorders_w"))
+print("pickup_delivery_items_w",ss.get_count(table_name="pickup_delivery_items_w"))
+# print("masterorders_view",ss.get_count(table_name="masterorders_view"))
 # print(ss.get_schema(table_name="pickup_delivery_items"))
 # print("#"*100)
 # print(ss.get_schema(table_name="pickup_delivery_items_w"))

@@ -20,7 +20,7 @@ router = APIRouter(prefix="", tags=["Order Line Items"])
 def multi_within_mysql(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
-    chunk_size: int = Query(1000, description="Chunk size for multithreading"),
+    chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
 
@@ -28,6 +28,7 @@ def multi_within_mysql(
     dbname = "orderlineitems"
 
     mysql_creds = MysqlCatalog()
+    print("orderlineitems", mysql_creds.get_count(dbname))
 
     # -------------------------------------------------
     # Step 1: Fetch and Convert MySQL Data
@@ -35,7 +36,7 @@ def multi_within_mysql(
     mysql_start = time.time()
     try:
         rows = mysql_creds.get_orderlineitems(dbname, start_range, end_range)
-
+        print("orderlineitems", mysql_creds.get_count(dbname))
 
         if not rows:
             raise HTTPException(status_code=400, detail="No data found in the given range.")

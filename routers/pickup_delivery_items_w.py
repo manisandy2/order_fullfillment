@@ -30,21 +30,24 @@ def multi_within_mysql(
     # -------------------------------------------------
     mysql_start = time.time()
     try:
-        rows = mysql_creds.get_pickup_delivery_items(dbname, start_range, end_range)
-        
+        rows = mysql_creds.get_pickup_delivery_items_w(dbname, start_range, end_range)
+        print("pickup_delivery_items_w", mysql_creds.get_count(dbname))
 
         if not rows:
             raise HTTPException(status_code=400, detail="No data found in the given range.")
         
-        print("Sample Row:", rows[0])
+        # print("Sample Row:", rows[0])
 
         mysql_end = time.time()
         print(f"MySQL fetch completed in {mysql_end - mysql_start:.2f} sec ({len(rows)} rows).")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
-    
-    
+
+    oms_rows = [row for row in rows if row.get("oms_data_migration_status") == 1]
+    if not oms_rows:
+        raise HTTPException(status_code=400, detail="oms_data_migration_status not found")
+
     pickup_delivery_items_clean_rows(rows)
     
     # -------------------------------------------------

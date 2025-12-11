@@ -10,7 +10,7 @@ API_URL = "http://127.0.0.1:8000/masterorder/insert-master-order-data"  # FastAP
 
 BATCH_SIZE = 10000
 START_ROWS = 0
-TOTAL_ROWS = 261266
+TOTAL_ROWS = 89
 chunk_size=1000
 
 MAX_RETRIES = 3
