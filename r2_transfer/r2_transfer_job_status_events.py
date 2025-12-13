@@ -15,8 +15,8 @@ TOTAL_ROWS = 3850480
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/status-events.log"
-FAILED_LOG_FILE = "logs/status-events.log"
+SUCCESS_LOG_FILE = "logs/success_status-events.log"
+FAILED_LOG_FILE = "logs/error_status-events.log"
 
 # ------------------ LOGGING SETUP ------------------
 

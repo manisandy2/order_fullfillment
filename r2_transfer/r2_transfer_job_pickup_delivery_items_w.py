@@ -15,8 +15,8 @@ TOTAL_ROWS = 197010
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/pickup-delivery-items-w-success.log"
-FAILED_LOG_FILE = "logs/pickup-delivery-items-w-error.log"
+SUCCESS_LOG_FILE = "logs/success_pickup-delivery-items-w.log"
+FAILED_LOG_FILE = "logs/error_pickup-delivery-items-w.log"
 
 # ------------------ LOGGING SETUP ------------------
 

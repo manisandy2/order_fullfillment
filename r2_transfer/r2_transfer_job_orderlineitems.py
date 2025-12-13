@@ -15,8 +15,8 @@ TOTAL_ROWS = 197100
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/orderlineitems.log"
-FAILED_LOG_FILE = "logs/orderlineitems.log"
+SUCCESS_LOG_FILE = "logs/success_orderlineitems.log"
+FAILED_LOG_FILE = "logs/error_orderlineitems.log"
 
 # ------------------ LOGGING SETUP ------------------
 

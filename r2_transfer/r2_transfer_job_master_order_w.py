@@ -16,8 +16,8 @@ chunk_size=10000
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/master_order_w.log"
-FAILED_LOG_FILE = "logs/master_order_w.log"
+SUCCESS_LOG_FILE = "logs/success_master_order_w.log"
+FAILED_LOG_FILE = "logs/error_master_order_w.log"
 
 # ------------------ LOGGING SETUP ------------------
 

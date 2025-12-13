@@ -9,7 +9,9 @@ from .pickup_delivery_items_Utility import *
 from .insert_data import process_chunk
 from core.catalog_client import get_catalog_client
 from pyiceberg.catalog import NoSuchTableError
+from core.logger import get_logger
 
+logger = get_logger("pickup-delivery-items-w-api")
 
 router = APIRouter(prefix="", tags=["Pick up Delivery Items W"])
 # pickup_delivery_items
@@ -23,44 +25,49 @@ def multi_within_mysql(
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "pickup_delivery_items_w"
     dbname = "pickup_delivery_items_w"
+
+    logger.info(
+        f"START ingestion | table={namespace}.{table_name} "
+        f"range=({start_range},{end_range}) chunk_size={chunk_size}"
+    )
+
     mysql_creds = MysqlCatalog()
 
     # -------------------------------------------------
     # Step 1: Fetch and Convert MySQL Data
     # -------------------------------------------------
-    mysql_start = time.time()
+
     try:
         rows = mysql_creds.get_pickup_delivery_items_w(dbname, start_range, end_range)
-        print("pickup_delivery_items_w", mysql_creds.get_count(dbname))
+
 
         if not rows:
+            logger.warning("No rows found for given range")
             raise HTTPException(status_code=400, detail="No data found in the given range.")
-        
-        # print("Sample Row:", rows[0])
 
-        mysql_end = time.time()
-        print(f"MySQL fetch completed in {mysql_end - mysql_start:.2f} sec ({len(rows)} rows).")
+        logger.info(f"MySQL fetch success | rows={len(rows)}")
+
 
     except Exception as e:
+        logger.exception("MySQL fetch failed")
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
 
-    oms_rows = [row for row in rows if row.get("oms_data_migration_status") == 1]
-    if not oms_rows:
-        raise HTTPException(status_code=400, detail="oms_data_migration_status not found")
+    # oms_rows = [row for row in rows if row.get("oms_data_migration_status") == 1]
+    # if not oms_rows:
+    #     raise HTTPException(status_code=400, detail="oms_data_migration_status not found")
 
-    pickup_delivery_items_clean_rows(rows)
-    
+    try:
+        pickup_delivery_items_clean_rows(rows)
+        logger.info("Row cleaning completed")
+    except Exception as e:
+        logger.exception("Row cleaning failed")
+        raise HTTPException(status_code=500, detail=f"Row cleaning error: {e}")
     # -------------------------------------------------
     # Step 2: Infer Iceberg + Arrow Schema
     # -------------------------------------------------
-    schema_start = time.time()
-    iceberg_schema, arrow_schema = pickup_delivery_items_schema(rows[0])
-    
-    # print("iceberg_schema",iceberg_schema)
-    # print("arrow_schema",arrow_schema)
 
-    schema_end = time.time()
-    print(f"Schema inference completed in {schema_end - schema_start:.2f} sec")
+    iceberg_schema, arrow_schema = pickup_delivery_items_schema(rows[0])
+
 
     # -------------------------------------------------
     # Step 3: Convert Rows to Arrow Tables (Multithreaded)
@@ -68,52 +75,57 @@ def multi_within_mysql(
     arrow_start = time.time()
     chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
 
-    # print("chunks",chunks)
+
     arrow_tables = []
+    logger.info(f"Arrow conversion started | chunks={len(chunks)}")
+    try:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(process_chunk, chunk, arrow_schema): idx for idx, chunk in enumerate(chunks)}
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(process_chunk, chunk, arrow_schema): idx for idx, chunk in enumerate(chunks)}
-        
-        for future in as_completed(futures):
-            idx = futures[future]
-            try:
-                tbl = future.result()
-                arrow_tables.append(tbl)
-                print(f"Chunk {idx + 1}/{len(chunks)} processed with {tbl.num_rows} rows")
-            except Exception as e:
-                print(f"Chunk {idx + 1} failed: {e}")
-                raise HTTPException(status_code=500, detail=f"Arrow chunk conversion failed: {e}")
-
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    tbl = future.result()
+                    arrow_tables.append(tbl)
+                    logger.info(f"Chunk {idx + 1}/{len(chunks)} processed with {tbl.num_rows} rows")
+                except Exception as e:
+                    logger.exception(f"Chunk {idx + 1} failed: {e}")
+                    raise HTTPException(status_code=500, detail=f"Arrow chunk conversion failed: {e}")
+    except Exception as e:
+        logger.exception("Arrow conversion failed")
+        raise HTTPException(status_code=500, detail=f"Arrow conversion error: {e}")
 
     arrow_end = time.time()
-    print(f"Arrow conversion completed in {arrow_end - arrow_start:.2f} sec")
+    logger.info(f"Arrow conversion completed in {arrow_end - arrow_start:.2f}s")
 
     # -------------------------------------------------
     # Step 4: Load Iceberg Table
     # -------------------------------------------------
-    catalog_start = time.time()
-    catalog = get_catalog_client()
-    table_identifier = f"{namespace}.{table_name}"
+
     # print(f"catalog table_identifier: {table_identifier}")
     try:
+        catalog = get_catalog_client()
+        table_identifier = f"{namespace}.{table_name}"
         tbl = catalog.load_table(table_identifier)
-        catalog_end = time.time()
-        print(f"Catalog load completed in {catalog_end - catalog_start:.2f} sec")
-    except NoSuchTableError:
-        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+        logger.info(f"Iceberg table loaded successfully")
 
+    except NoSuchTableError:
+        logger.error("Iceberg table not found")
+        raise HTTPException(status_code=404, detail=f"Iceberg table not found")
+    except Exception as e:
+        logger.exception("Iceberg table load failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
     append_start = time.time()
     try:
-
         for i, batch in enumerate(arrow_tables, start=1):
-            print(f"Appending batch {i}/{len(arrow_tables)} rows={batch.num_rows}")
             tbl.append(batch)  # commit each
-            print("success post")
+            logger.info(
+                f"Iceberg append success | batch={i}/{len(arrow_tables)} rows={batch.num_rows}"
+            )
 
-        append_end = time.time()
-
-    except Exception as e:    
+    except Exception as e:
+        logger.exception("Iceberg append failed")
         raise HTTPException(
             status_code=500,
             detail={
@@ -123,8 +135,11 @@ def multi_within_mysql(
             },
         )
 
-    print(f" Append completed in {append_end - append_start:.2f} sec")
+    append_end = time.time()
     total_end = time.time()
+    logger.info(
+        f"END ingestion | rows={len(rows)} total_time={total_end - total_start:.2f}s"
+    )
     # -------------------------------------------------
     # Step 6: Return Response
     # -------------------------------------------------
@@ -134,10 +149,7 @@ def multi_within_mysql(
         "rows_fetched": len(rows),
         "chunks": len(chunks),
         "execution_times": {
-            "mysql_fetch": round(mysql_end - mysql_start, 2),
-            "schema_infer": round(schema_end - schema_start, 2),
             "arrow_convert": round(arrow_end - arrow_start, 2),
-            "catalog_load": round(catalog_end - catalog_start, 2),
             "append_refresh": round(append_end - append_start, 2),
             "total_time": round(total_end - total_start, 2),
         },
