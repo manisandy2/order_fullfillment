@@ -2,6 +2,10 @@
 from fastapi import APIRouter,Query,Body
 from core.catalog_client import get_catalog_client
 from fastapi.exceptions import HTTPException
+from pyiceberg.catalog import NoSuchNamespaceError,NamespaceAlreadyExistsError,TableAlreadyExistsError,NoSuchTableError
+from pyiceberg.types import StringType
+import pyarrow as pa
+from pyiceberg.schema import Schema
 
 router = APIRouter(prefix="", tags=["column"])
 
@@ -126,3 +130,63 @@ def get_data_range(
             status_code=500,
             detail=f"Failed to fetch data range: {e}"
         )
+
+
+@router.post("/table-add-columns")
+def add_columns(
+    namespace: str = Query(..., description="Namespace (e.g. 'order_fulfillment')"),
+    table_name: str = Query(..., description="Table name (e.g. 'orderlineitems')"),
+):
+
+    table_identifier = f"{namespace}.{table_name}"
+
+    catalog = get_catalog_client()
+
+    # -----------------------------
+    # Load table
+    # -----------------------------
+    try:
+        table = catalog.load_table(table_identifier)
+    except NoSuchTableError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Table not found: {table_identifier}"
+        )
+
+    # -----------------------------
+    # Schema Evolution
+    # -----------------------------
+    try:
+        with table.update_schema() as schema_update:
+            schema_update.add_column("erp_item_code",
+                field_type=StringType(),
+                doc="erp_item_code"
+            )
+            # schema_update.add_column(
+            #     "inventory_status",
+            #     field_type=StringType(),
+            #     doc="inventory_status"
+            # )
+
+        return {
+            "success": True,
+            "status": "columns_added",
+            "table": table_identifier,
+            "columns_added": ["erp_item_code"],
+            "schema_version": table.schema().schema_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except (ValueError, TypeError) as e:
+        logger.error(f"Invalid column definition: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid column definition: {e}")
+    except Exception as e:
+        logger.exception(f"Schema update failed for {table_identifier}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+            "error": "SCHEMA_UPDATE_FAILED",
+            "table": table_identifier,
+            "details": str(e)
+        }
+    )

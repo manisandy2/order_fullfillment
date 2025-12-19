@@ -30,14 +30,17 @@ from routers import pickup_delivery_items
 from routers import pickup_delivery_items_w
 from routers import status_events
 from routers import orderlineitems
+from routers import orderlineitems_test
 from routers import column
-
+from routers import schema
+from routers.worker import iceberg_worker
 from core.mysql_client import MysqlCatalog
-
+import asyncio
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
 
 # app.include_router(bucket.router)
 app.include_router(namespace.router)
@@ -49,9 +52,14 @@ app.include_router(pickup_delivery_items.router)
 app.include_router(pickup_delivery_items_w.router)
 app.include_router(status_events.router)
 app.include_router(orderlineitems.router)
+app.include_router(orderlineitems_test.router)
 app.include_router(filters.router)
 app.include_router(column.router)
+app.include_router(schema.router)
 
+@app.on_event("startup")
+async def start_worker():
+    asyncio.create_task(iceberg_worker())
 
 
 

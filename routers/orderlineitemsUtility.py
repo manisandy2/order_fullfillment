@@ -4,13 +4,6 @@ from pyiceberg.types import *
 from datetime import datetime, date
 from pyiceberg.schema import Schema
 
-
-
-
-
-
-
-
 def orderlineitems_schema(record: dict):
     iceberg_fields = []
     arrow_fields = []
@@ -204,3 +197,139 @@ def orderlineitems_clean_rows(rows):
             row[f] = parsed if parsed else None
 
     return rows
+
+def orderlineitems_test_clean_rows(rows):
+
+    # FLOAT fields (none in this schema)
+    float_fields = []
+
+    # INTEGER fields
+    integer_fields = []
+
+    # TIMESTAMP fields
+    timestamp_fields = ["created_at"]
+
+    # STRING + TEXT + JSON fields
+    string_fields = [
+        "line_item_id", "order_line_item_id", "master_order_id", "master_sale_order_id",
+        "delivery_from","customer_status","inventory_status","erp_item_code"
+    ]
+
+    for row in rows:
+
+        # -------- Integer Fields ----------------------------------------
+        for f in integer_fields:
+            val = row.get(f)
+            if isinstance(val, str):
+                try:
+                    row[f] = int(val)
+                except ValueError:
+                    row[f] = 0
+            elif val is None:
+                row[f] = 0
+
+        # -------- String Fields -----------------------------------------
+        for f in string_fields:
+            val = row.get(f)
+            if val is None:
+                row[f] = ""
+            else:
+                row[f] = str(val)
+
+        # -------- Timestamp Fields --------------------------------------
+        for f in timestamp_fields:
+            val = row.get(f)
+
+            if val is None or val == "":
+                row[f] = None
+                continue
+
+            if isinstance(val, datetime):
+                continue
+
+            parsed = None
+            dt_formats = [
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%dT%H:%M:%S",
+                "%d/%m/%Y %H:%M:%S",
+                "%Y-%m-%d",
+            ]
+
+            for fmt in dt_formats:
+                try:
+                    parsed = datetime.strptime(val, fmt)
+                    break
+                except:
+                    pass
+
+            row[f] = parsed if parsed else None
+
+    return rows
+
+
+
+def orderlineitems_test_schema(record: dict):
+    iceberg_fields = []
+    arrow_fields = []
+
+    # ----------------------------------------------------------
+    # CUSTOM FIELD OVERRIDES (Strict Types From MySQL Schema)
+    # ----------------------------------------------------------
+    field_overrides = {
+
+        # PRIMARY KEY
+        "line_item_id": (StringType(), pa.string(), True),
+        "order_line_item_id": (StringType(), pa.string(), False),
+        "master_order_id": (StringType(), pa.string(), False),
+        "master_sale_order_id": (StringType(), pa.string(), False),
+        "delivery_from": (StringType(), pa.string(), False),
+        "created_by": (StringType(), pa.string(), False),
+        "customer_status":(StringType(), pa.string(), False),
+        "inventory_status":(StringType(), pa.string(), False),
+        "erp_item_code":(StringType(), pa.string(), False),
+
+    }
+
+    # ----------------------------------------------------------
+    # AUTO TYPE DETECTION FOR NON-OVERRIDE FIELDS
+    # ----------------------------------------------------------
+    for idx, (name, value) in enumerate(record.items(), start=1):
+
+        if name in field_overrides:
+            ice_type, arrow_type, required = field_overrides[name]
+        else:
+            required = False
+
+            # Boolean
+            if isinstance(value, bool):
+                ice_type, arrow_type = BooleanType(), pa.bool_()
+
+            # Integer
+            elif isinstance(value, int):
+                ice_type, arrow_type = IntegerType(), pa.int32()
+
+            # Float
+            elif isinstance(value, float):
+                ice_type, arrow_type = DoubleType(), pa.float64()
+
+            # Date only (YYYY-MM-DD)
+            elif isinstance(value, date) and not isinstance(value, datetime):
+                ice_type, arrow_type = DateType(), pa.date32()
+
+            # Timestamp
+            elif isinstance(value, datetime):
+                ice_type, arrow_type = TimestampType(), pa.timestamp("ms")
+
+            # Default: STRING
+            else:
+                ice_type, arrow_type = StringType(), pa.string()
+
+        iceberg_fields.append(
+            NestedField(field_id=idx, name=name, field_type=ice_type, required=required)
+        )
+        arrow_fields.append(pa.field(name, arrow_type, nullable=not required))
+
+    iceberg_schema = Schema(*iceberg_fields)
+    arrow_schema = pa.schema(arrow_fields)
+
+    return iceberg_schema, arrow_schema

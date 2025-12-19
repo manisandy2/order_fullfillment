@@ -10,7 +10,7 @@ API_URL = "http://127.0.0.1:8000/status-events/insert-multi-with-mysql"  # FastA
 
 BATCH_SIZE = 10000
 START_ROWS = 0
-TOTAL_ROWS = 3850480
+TOTAL_ROWS = 984137
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2

@@ -8,15 +8,15 @@ from datetime import datetime
 
 API_URL = "http://127.0.0.1:8000/orderlineitems/insert-multi-with-mysql"  # FastAPI endpoint
 
-BATCH_SIZE = 10000
-START_ROWS = 0
-TOTAL_ROWS = 197100
+BATCH_SIZE = 50000
+START_ROWS = 550000
+TOTAL_ROWS = 5559251
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/success_orderlineitems.log"
-FAILED_LOG_FILE = "logs/error_orderlineitems.log"
+SUCCESS_LOG_FILE = "logs/success_orderlineitems_live.log"
+FAILED_LOG_FILE = "logs/error_orderlineitems_live.log"
 
 # ------------------ LOGGING SETUP ------------------
 

@@ -11,7 +11,8 @@ __pycache__/
 .venv
 env/
 venv/
-
+output
+output/
 # Editor/IDE files
 .vscode/
 .idea/

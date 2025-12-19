@@ -9,11 +9,14 @@ from .status_eventsUtility import *
 from .insert_data import process_chunk
 from core.catalog_client import get_catalog_client
 from pyiceberg.catalog import NoSuchTableError
+from core.logger import get_logger
 
+
+logger = get_logger("Status-Events-w-api")
 
 router = APIRouter(prefix="", tags=["Status Events"])
-# pickup_delivery_items
-# multi thereading 
+# Status Events
+# multithreading
 @router.post("/status-events/insert-multi-with-mysql")
 def multi_within_mysql(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
@@ -23,40 +26,47 @@ def multi_within_mysql(
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "status_events"
     dbname = "status_events"
-    mysql_creds = MysqlCatalog()
 
+
+    logger.info(
+        f"START ingestion | table={namespace}.{table_name} "
+        f"range=({start_range},{end_range}) chunk_size={chunk_size}"
+    )
     # -------------------------------------------------
     # Step 1: Fetch and Convert MySQL Data
     # -------------------------------------------------
-    mysql_start = time.time()
+    mysql_creds = MysqlCatalog()
+
+
     try:
         rows = mysql_creds.get_status_events(dbname, start_range, end_range)
         
         if not rows:
+            logger.warning("No rows found for given range")
             raise HTTPException(status_code=400, detail="No data found in the given range.")
-        
-        print("Sample Row:", rows[0])
 
-        mysql_end = time.time()
-        print(f"MySQL fetch completed in {mysql_end - mysql_start:.2f} sec ({len(rows)} rows).")
+        logger.info(f"MySQL fetch success | rows={len(rows)}")
+
 
     except Exception as e:
+        logger.exception("MySQL fetch failed")
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
-    
-    
-    statusEvent_clean_rows(rows)
+
+
+    try:
+        statusEvent_clean_rows(rows)
+        logger.info("Row cleaning completed")
+    except Exception as e:
+        logger.exception("Row cleaning failed")
+        raise HTTPException(status_code=500, detail=f"Row cleaning error: {e}")
     
     # -------------------------------------------------
     # Step 2: Infer Iceberg + Arrow Schema
     # -------------------------------------------------
-    schema_start = time.time()
     iceberg_schema, arrow_schema = statusEvent_schema(rows[0])
     
     # print("iceberg_schema",iceberg_schema)
     # print("arrow_schema",arrow_schema)
-
-    schema_end = time.time()
-    print(f"Schema inference completed in {schema_end - schema_start:.2f} sec")
 
     # -------------------------------------------------
     # Step 3: Convert Rows to Arrow Tables (Multithreaded)
@@ -66,50 +76,102 @@ def multi_within_mysql(
 
     # print("chunks",chunks)
     arrow_tables = []
+    failed_chunks = []  # Track failed chunks for error handling
+    logger.info(f"Arrow conversion started | chunks={len(chunks)}")
+    try:
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(process_chunk, chunk, arrow_schema): idx for idx, chunk in enumerate(chunks)}
-        
-        for future in as_completed(futures):
-            idx = futures[future]
-            try:
-                tbl = future.result()
-                arrow_tables.append(tbl)
-                print(f"Chunk {idx + 1}/{len(chunks)} processed with {tbl.num_rows} rows")
-            except Exception as e:
-                print(f"Chunk {idx + 1} failed: {e}")
-                raise HTTPException(status_code=500, detail=f"Arrow chunk conversion failed: {e}")
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(process_chunk, chunk, arrow_schema): idx for idx, chunk in enumerate(chunks)}
 
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    tbl = future.result()
+                    arrow_tables.append(tbl)
+                    logger.info(f"Chunk {idx + 1}/{len(chunks)} processed with {tbl.num_rows} rows")
+                except Exception as e:
+                    logger.error(f"Chunk {idx + 1} failed: {e}")
+                    failed_chunks.append({
+                        "chunk_index": idx,
+                        "chunk_data": chunks[idx],
+                        "error": str(e)
+                    })
+
+    except Exception:
+        logger.exception("Arrow conversion failed")
+        raise HTTPException(status_code=500, detail=f"Arrow conversion error: {e}")
 
     arrow_end = time.time()
-    print(f"Arrow conversion completed in {arrow_end - arrow_start:.2f} sec")
+    logger.info(f"Arrow conversion completed in {arrow_end - arrow_start:.2f}s")
 
     # -------------------------------------------------
     # Step 4: Load Iceberg Table
     # -------------------------------------------------
-    catalog_start = time.time()
-    catalog = get_catalog_client()
-    table_identifier = f"{namespace}.{table_name}"
-    # print(f"catalog table_identifier: {table_identifier}")
-    try:
-        tbl = catalog.load_table(table_identifier)
-        catalog_end = time.time()
-        print(f"Catalog load completed in {catalog_end - catalog_start:.2f} sec")
-    except NoSuchTableError:
-        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+    # Handle failed chunks - save to error table
+    error_save_result = None
+    if failed_chunks:
+        from .error_handler import handle_ingestion_error
 
+        logger.warning(f"{len(failed_chunks)} chunks failed during Arrow conversion")
+
+        # Flatten failed records from all failed chunks
+        failed_records = []
+        for failed_chunk in failed_chunks:
+            failed_records.extend(failed_chunk["chunk_data"])
+
+        # Save to error table
+        error_save_result = handle_ingestion_error(
+            table_name=table_name,
+            failed_records=failed_records,
+            error_type="ARROW_CONVERSION_FAILED",
+            error_message=f"Failed chunks: {[fc['chunk_index'] for fc in failed_chunks]}",
+            use_error_table=True
+        )
+
+        logger.info(f"Saved {len(failed_records)} failed records to error table")
+
+    # If all chunks failed, raise error
+    if not arrow_tables:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "All chunks failed during Arrow conversion",
+                "failed_chunks": len(failed_chunks),
+                "error_table_result": error_save_result
+            }
+        )
+
+    try:
+        catalog = get_catalog_client()
+        table_identifier = f"{namespace}.{table_name}"
+        tbl = catalog.load_table(table_identifier)
+        logger.info("Iceberg table loaded successfully")
+    except NoSuchTableError:
+        logger.error("Iceberg table not found")
+        raise HTTPException(status_code=404, detail=f"Table not found")
+    except Exception as e:
+        logger.exception("Iceberg table load failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
     append_start = time.time()
+    failed_batches = []  # Track failed batch appends
     try:
-
         for i, batch in enumerate(arrow_tables, start=1):
-            print(f"Appending batch {i}/{len(arrow_tables)} rows={batch.num_rows}")
-            tbl.append(batch)  # commit each
-
-
-        append_end = time.time()
-
-    except Exception as e:    
+            try:
+                tbl.append(batch)  # commit each
+                logger.info(
+                    f"Iceberg append success | batch={i}/{len(arrow_tables)} rows={batch.num_rows}"
+                )
+            except Exception as batch_error:
+                logger.error(f"Batch {i} append failed: {batch_error}")
+                failed_batches.append({
+                    "batch_index": i,
+                    "batch_data": batch.to_pylist(),
+                    "error": str(batch_error)
+                })
+                # Continue with other batches
+    except Exception as e:
+        logger.exception("Iceberg append failed")
         raise HTTPException(
             status_code=500,
             detail={
@@ -118,26 +180,65 @@ def multi_within_mysql(
                 "exception": str(e),
             },
         )
+    # Handle failed batch appends
+    batch_error_result = None
+    if failed_batches:
+        from .error_handler import handle_ingestion_error
 
-    print(f" Append completed in {append_end - append_start:.2f} sec")
+        logger.warning(f"{len(failed_batches)} batches failed during Iceberg append")
+
+        # Flatten failed records from all failed batches
+        failed_records = []
+        for failed_batch in failed_batches:
+            failed_records.extend(failed_batch["batch_data"])
+
+        # Save to error table
+        batch_error_result = handle_ingestion_error(
+            table_name=table_name,
+            failed_records=failed_records,
+            error_type="ICEBERG_APPEND_FAILED",
+            error_message=f"Failed batches: {[fb['batch_index'] for fb in failed_batches]}",
+            use_error_table=True
+        )
+
+        logger.info(f"Saved {len(failed_records)} failed records from append errors to error table")
+    append_end = time.time()
     total_end = time.time()
+
+    successful_rows = len(rows) - len([r for fc in failed_chunks for r in fc.get("chunk_data", [])]) - len(
+        [r for fb in failed_batches for r in fb.get("batch_data", [])])
+
+    logger.info(
+        f"END ingestion | total_rows={len(rows)} successful={successful_rows} "
+        f"failed_chunks={len(failed_chunks)} failed_batches={len(failed_batches)} "
+        f"total_time={total_end - total_start:.2f}s"
+    )
     # -------------------------------------------------
     # Step 6: Return Response
     # -------------------------------------------------
-    return {
+    response = {
         "success": True,
-        "message": "Data appended successfully with multithreading",
+        "message": "Data ingestion completed with error handling",
         "rows_fetched": len(rows),
+        "rows_successful": successful_rows,
         "chunks": len(chunks),
+        "chunks_successful": len(arrow_tables),
+        "chunks_failed": len(failed_chunks),
+        "batches_failed": len(failed_batches),
         "execution_times": {
-            "mysql_fetch": round(mysql_end - mysql_start, 2),
-            "schema_infer": round(schema_end - schema_start, 2),
             "arrow_convert": round(arrow_end - arrow_start, 2),
-            "catalog_load": round(catalog_end - catalog_start, 2),
             "append_refresh": round(append_end - append_start, 2),
             "total_time": round(total_end - total_start, 2),
         },
     }
+
+    # Add error handling results if any failures occurred
+    if error_save_result:
+        response["arrow_conversion_errors"] = error_save_result
+    if batch_error_result:
+        response["append_errors"] = batch_error_result
+
+    return response
 
 
 # single core

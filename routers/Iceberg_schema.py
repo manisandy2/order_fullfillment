@@ -311,3 +311,12 @@ OrderLineItems = [
     NestedField(51,"oms_data_migration_status",IntegerType()),
     
 ]
+
+OrderLineItems_test = [
+    NestedField(1, "line_item_id", StringType()),
+    NestedField(2, "order_line_item_id", StringType()),
+    NestedField(3, "master_order_id", StringType()),
+    NestedField(4, "master_sale_order_id", StringType()),
+    NestedField(5, "delivery_from", StringType()),
+    NestedField(6,"created_at",TimestampType()),
+]

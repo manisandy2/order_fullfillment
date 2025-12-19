@@ -3,145 +3,74 @@ from core.catalog_client import get_catalog_client
 from pyiceberg.schema import Schema
 from pyiceberg.partitioning import PartitionSpec,PartitionField
 from pyiceberg.transforms import YearTransform
-from .Iceberg_schema import MasterSchema,Pickup_delivery_items,Status_event,OrderLineItems
+from .Iceberg_schema import MasterSchema, Pickup_delivery_items, Status_event, OrderLineItems, OrderLineItems_test
 from pyiceberg.catalog import NoSuchNamespaceError,NamespaceAlreadyExistsError,TableAlreadyExistsError,NoSuchTableError
+from core.logger import get_logger
+import re
 
+logger = get_logger("table-api")
 router = APIRouter(prefix="", tags=["Tables"])
+
+
+def validate_namespace(namespace: str) -> None:
+    """Validate namespace format"""
+    if not namespace or not namespace.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Namespace cannot be empty"
+        )
+    
+    if not re.match(r'^[a-zA-Z0-9_]+$', namespace):
+        raise HTTPException(
+            status_code=400,
+            detail="Namespace must contain only alphanumeric characters and underscores"
+        )
 
 
 @router.get("/table/list")
 def get_tables(
-        namespace: str = Query(..., description="Namespace to list tables from"),
-
+    namespace: str = Query(..., description="Namespace to list tables from"),
 ):
+    """
+    List all tables in a given namespace
+    
+    Args:
+        namespace: Name of the namespace to query
+        
+    Returns:
+        Dictionary with namespace, tables list, and count
+    """
+    # Validate input
+    validate_namespace(namespace)
+    
+    logger.info(f"Listing tables in namespace: {namespace}")
+    
     try:
         catalog = get_catalog_client()
         tables = catalog.list_tables(namespace)
 
-        if tables:
-            return {"namespace": namespace, "tables": tables}
-        else:
-            return {"namespace": namespace, "tables": [], "message": "No tables found."}
+        logger.info(f"Found {len(tables)} tables in namespace '{namespace}'")
+        
+        return {
+            "success": True,
+            "namespace": namespace,
+            "tables": tables,
+            "count": len(tables)
+        }
 
+    except NoSuchNamespaceError:
+        logger.warning(f"Namespace not found: {namespace}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Namespace '{namespace}' does not exist"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list tables in namespace '{namespace}': {str(e)}")
-# original
-# @router.post("/masterorders/create")
-# def create(
-#         # namespace: str = Query("pos_transactions"),
-#         # table_name: str = Query(..., description="Table name"),
-# ):
-#     namespace = "order_fulfillment"
-#     table_name = "master_order"
-#     # table_name = "iceberg_add_range_test"
-#     table_identifier = f"{namespace}.{table_name}"
-#
-#
-#     print("Schema obj:", MasterSchema)
-#     order_ff_schema = Schema(fields=MasterSchema)
-#     # order_ff_schema_data = Schema(MasterSchema)
-#     # Step 1: Define Iceberg schema
-#     # order_ff_schema = Schema(
-#     #     NestedField(1,"order_id",StringType(),required=True),
-#     #     NestedField(2, "sale_order_id", StringType(),required=True),
-#     #     NestedField(3, "invoice_no", StringType()),
-#     #     NestedField(4, "invoice_date", TimestampType()),
-#     #     NestedField(5, "invoice_reff_no", StringType()),
-#     #     NestedField(6, "invoice_reff_date", StringType()),
-#     #     NestedField(7, "channel", StringType()),
-#     #     NestedField(8, "channel_medium", StringType()),
-#     #     NestedField(9, "order_status", StringType()),
-#     #     NestedField(10, "order_tag", StringType()),
-#     #     NestedField(11, "order_inv_status", StringType()),
-#     #     NestedField(12, "order_type", StringType()),
-#     #     NestedField(13, "delivery_from", StringType()),
-#     #     NestedField(14, "delivery_from_branchcode", StringType()),
-#     #     NestedField(15, "billing_branch_code", StringType()),
-#     #     NestedField(16, "cust_id", StringType()),
-#     #     NestedField(17, "cust_primary_email", StringType()),
-#     #     NestedField(18, "cust_primary_contact", StringType()),
-#     #     NestedField(19, "cust_mobile", StringType()),
-#     #     NestedField(20, "customer_address", StringType()),
-#     #     NestedField(21, "shipment_address", StringType()),
-#     #     NestedField(22, "latitude", FloatType()),
-#     #     NestedField(23, "longitude", FloatType()),
-#     #     NestedField(24, "billing_address", StringType()),
-#     #     NestedField(25, "payment_details", StringType()),
-#     #     NestedField(26, "refund_details", StringType()),
-#     #     NestedField(27, "voucher_details", StringType()),
-#     #     NestedField(28, "employee_sale_details", StringType()),
-#     #     NestedField(29, "order_summary_details", StringType()),
-#     #     NestedField(30, "other_details", StringType()),
-#     #     NestedField(31, "service_details", StringType()),
-#     #     NestedField(32, "invoice_pdf", StringType()),
-#     #     NestedField(33, "lineitems", StringType()),
-#     #     NestedField(34, "lineitem_status", StringType()),
-#     #     NestedField(35, "created_at", TimestampType()),
-#     #     NestedField(36, "created_by", StringType()),
-#     #     NestedField(37, "updated_by", StringType()),
-#     #     NestedField(38, "updated_at", TimestampType()),
-#     #     NestedField(39, "oms_data_migration_status", IntegerType()),
-#     #     NestedField(40, "cust_id_update", IntegerType()),
-#     #     NestedField(41, "multi_invoice", StringType()),
-#     #     NestedField(42, "updated_at_new", TimestampType()),
-#     # )
-#
-#
-#     # Step 2: Define partition spec
-#     transaction_partition_spec = PartitionSpec(
-#         PartitionField(
-#             source_id=order_ff_schema.find_field("created_at").field_id,
-#             field_id=2001,
-#             transform=YearTransform(),
-#             name="year",
-#         ),
-#     )
-#
-#     # Step 3: Connect to catalog
-#     catalog = get_catalog_client()
-#
-#     # Step 4: Ensure namespace exists
-#     try:
-#         catalog.load_namespace_properties(namespace)
-#     except NoSuchNamespaceError:
-#         catalog.create_namespace(namespace)
-#     except NamespaceAlreadyExistsError:
-#         pass
-#
-#     # Step 5: Create table
-#     try:
-#         tbl = catalog.create_table(
-#             identifier=table_identifier,
-#             schema=order_ff_schema,
-#             partition_spec=transaction_partition_spec,
-#             properties={
-#                 "format-version": "2",  # <-- mandatory
-#                 "table-type": "MERGE_ON_READ",  # <-- enable merge-on-read
-#                 "identifier-field-ids": "1", # order_id is PRIMARY KEY
-#                 "write.format.default": "parquet",
-#                 "write.parquet.compression-codec": "zstd",
-#                 "write.partition.path-style": "hierarchical",   # hierarchical & directory
-#                 # "write.sort.order": "month(Bill_Date__c) ASC, customerId,customer_mobile__c",
-#                 # "write.sort.order": "customerId,customer_mobile__c",
-#                 # "write.sort.order": "year ASC, order_id ASC",
-#                 "write.sort.order": "year ASC, sale_order_id ASC, invoice_no ASC, invoice_date ASC",
-#                 "write.target-file-size-bytes": "268435456"
-#             },
-#         )
-#         print(f" Created Iceberg table: {table_identifier}")
-#
-#         # Step 6: Return confirmation
-#         return {
-#             "status": "created",
-#             "table": table_identifier,
-#             "schema_fields": [f.name for f in order_ff_schema.fields],
-#             # "partitions": [f.name for f in transaction_partition_spec.fields],
-#         }
-#
-#     except TableAlreadyExistsError:
-#         return {"status": "exists", "table": table_identifier}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+        logger.exception(f"Failed to list tables in namespace '{namespace}'")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list tables: {str(e)}"
+        )
+
 
 # masterOrder
 @router.post("/masterorders/create")
@@ -154,7 +83,7 @@ def create(
     # table_name = "iceberg_add_range_test"
     table_identifier = f"{namespace}.{table_name}"
 
-    print("Schema obj:", MasterSchema)
+    logger.info(f"Creating table: {table_identifier}")
     order_ff_schema = Schema(fields=MasterSchema)
 
     # Step 2: Define partition spec
@@ -198,20 +127,36 @@ def create(
                 "write.target-file-size-bytes": "268435456"
             },
         )
-        print(f" Created Iceberg table: {table_identifier}")
+        logger.info(f"Successfully created Iceberg table: {table_identifier}")
 
         # Step 6: Return confirmation
         return {
+            "success": True,
             "status": "created",
             "table": table_identifier,
-            "schema_fields": [f.name for f in order_ff_schema.fields],
-            "partitions": [f.name for f in order_ff_schema.fields],
+            "schema_field_count": len(order_ff_schema.fields),
+            "partition_by": "year(created_at)"
         }
 
     except TableAlreadyExistsError:
-        return {"status": "exists", "table": table_identifier}
+        logger.info(f"Table already exists: {table_identifier}")
+        return {
+            "success": True,
+            "status": "exists",
+            "table": table_identifier,
+            "message": "Table already exists (idempotent)"
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+        logger.exception(f"Failed to create table {table_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_CREATION_FAILED",
+                "message": f"Failed to create table '{table_identifier}'",
+                "details": str(e),
+                "table": table_identifier
+            }
+        )
 
 @router.post("/masterorders-w/create")
 def create(
@@ -223,7 +168,7 @@ def create(
     # table_name = "iceberg_add_range_test"
     table_identifier = f"{namespace}.{table_name}"
 
-    print("Schema obj:", MasterSchema)
+    logger.info(f"Creating table: {table_identifier}")
     order_ff_schema = Schema(fields=MasterSchema)
 
     # Step 2: Define partition spec
@@ -267,20 +212,36 @@ def create(
                 "write.target-file-size-bytes": "268435456"
             },
         )
-        print(f" Created Iceberg table: {table_identifier}")
+        logger.info(f"Successfully created Iceberg table: {table_identifier}")
 
         # Step 6: Return confirmation
         return {
+            "success": True,
             "status": "created",
             "table": table_identifier,
-            "schema_fields": [f.name for f in order_ff_schema.fields],
-            "partitions": [f.name for f in order_ff_schema.fields],
+            "schema_field_count": len(order_ff_schema.fields),
+            "partition_by": "year(created_at)"
         }
 
     except TableAlreadyExistsError:
-        return {"status": "exists", "table": table_identifier}
+        logger.info(f"Table already exists: {table_identifier}")
+        return {
+            "success": True,
+            "status": "exists",
+            "table": table_identifier,
+            "message": "Table already exists (idempotent)"
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+        logger.exception(f"Failed to create table {table_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_CREATION_FAILED",
+                "message": f"Failed to create table '{table_identifier}'",
+                "details": str(e),
+                "table": table_identifier
+            }
+        )
 
 # pickup_delivery_items
 @router.post("/pickup_delivery_items/create")
@@ -295,7 +256,7 @@ def create(
 
     # Step 1: Define Iceberg schema
 
-    print("Schema obj:", Pickup_delivery_items)
+    logger.info(f"Creating table: {table_identifier}")
     Pickup_delivery_items_schema = Schema(fields=Pickup_delivery_items)
 
 
@@ -340,20 +301,36 @@ def create(
                 "write.target-file-size-bytes": "268435456"
             },
         )
-        print(f" Created Iceberg table: {table_identifier}")
+        logger.info(f"Successfully created Iceberg table: {table_identifier}")
 
         # Step 6: Return confirmation
         return {
+            "success": True,
             "status": "created",
             "table": table_identifier,
-            "schema_fields": [f.name for f in Pickup_delivery_items_schema.fields],
-            "partitions": [f.name for f in Pickup_delivery_items_schema.fields],
+            "schema_field_count": len(Pickup_delivery_items_schema.fields),
+            "partition_by": "year(invoice_date)"
         }
 
     except TableAlreadyExistsError:
-        return {"status": "exists", "table": table_identifier}
+        logger.info(f"Table already exists: {table_identifier}")
+        return {
+            "success": True,
+            "status": "exists",
+            "table": table_identifier,
+            "message": "Table already exists (idempotent)"
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+        logger.exception(f"Failed to create table {table_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_CREATION_FAILED",
+                "message": f"Failed to create table '{table_identifier}'",
+                "details": str(e),
+                "table": table_identifier
+            }
+        )
 
 @router.post("/pickup_delivery_items_w/create")
 def create(
@@ -367,7 +344,7 @@ def create(
 
     # Step 1: Define Iceberg schema
 
-    print("Schema obj:", Pickup_delivery_items)
+    logger.info(f"Creating table: {table_identifier}")
     Pickup_delivery_items_schema = Schema(fields=Pickup_delivery_items)
 
 
@@ -412,20 +389,36 @@ def create(
                 "write.target-file-size-bytes": "268435456"
             },
         )
-        print(f" Created Iceberg table: {table_identifier}")
+        logger.info(f"Successfully created Iceberg table: {table_identifier}")
 
         # Step 6: Return confirmation
         return {
+            "success": True,
             "status": "created",
             "table": table_identifier,
-            "schema_fields": [f.name for f in Pickup_delivery_items_schema.fields],
-            "partitions": [f.name for f in Pickup_delivery_items_schema.fields],
+            "schema_field_count": len(Pickup_delivery_items_schema.fields),
+            "partition_by": "year(invoice_date)"
         }
 
     except TableAlreadyExistsError:
-        return {"status": "exists", "table": table_identifier}
+        logger.info(f"Table already exists: {table_identifier}")
+        return {
+            "success": True,
+            "status": "exists",
+            "table": table_identifier,
+            "message": "Table already exists (idempotent)"
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+        logger.exception(f"Failed to create table {table_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_CREATION_FAILED",
+                "message": f"Failed to create table '{table_identifier}'",
+                "details": str(e),
+                "table": table_identifier
+            }
+        )
 
 # status_events
 @router.post("/status_events/create")
@@ -440,7 +433,7 @@ def create(
 
     # Step 1: Define Iceberg schema
 
-    print("Schema obj:", Status_event)
+    logger.info(f"Creating table: {table_identifier}")
     status_ff_schema = Schema(fields=Status_event)
 
     # Step 2: Define partition spec
@@ -484,20 +477,36 @@ def create(
                 "write.target-file-size-bytes": "268435456"
             },
         )
-        print(f" Created Iceberg table: {table_identifier}")
+        logger.info(f"Successfully created Iceberg table: {table_identifier}")
 
         # Step 6: Return confirmation
         return {
+            "success": True,
             "status": "created",
             "table": table_identifier,
-            "schema_fields": [f.name for f in status_ff_schema.fields],
-            "partitions": [f.name for f in status_ff_schema.fields],
+            "schema_field_count": len(status_ff_schema.fields),
+            "partition_by": "year(invoice_date)"
         }
 
     except TableAlreadyExistsError:
-        return {"status": "exists", "table": table_identifier}
+        logger.info(f"Table already exists: {table_identifier}")
+        return {
+            "success": True,
+            "status": "exists",
+            "table": table_identifier,
+            "message": "Table already exists (idempotent)"
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+        logger.exception(f"Failed to create table {table_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_CREATION_FAILED",
+                "message": f"Failed to create table '{table_identifier}'",
+                "details": str(e),
+                "table": table_identifier
+            }
+        )
 
 # orderlineitems
 @router.post("/orderlineitems/create")
@@ -511,7 +520,7 @@ def create(
     table_identifier = f"{namespace}.{table_name}"
 
     # Step 1: Define Iceberg schema
-    print("Schema obj:", OrderLineItems)
+    logger.info(f"Creating table: {table_identifier}")
     orderlineitems_ff_schema = Schema(fields=OrderLineItems)
 
 
@@ -556,20 +565,124 @@ def create(
                 "write.target-file-size-bytes": "268435456"
             },
         )
-        print(f" Created Iceberg table: {table_identifier}")
+        logger.info(f"Successfully created Iceberg table: {table_identifier}")
 
         # Step 6: Return confirmation
         return {
+            "success": True,
             "status": "created",
             "table": table_identifier,
-            "schema_fields": [f.name for f in orderlineitems_ff_schema.fields],
-            # "partitions": [f.name for f in transaction_partition_spec.fields],
+            "schema_field_count": len(orderlineitems_ff_schema.fields),
+            "partition_by": "year(created_at)"
         }
 
     except TableAlreadyExistsError:
-        return {"status": "exists", "table": table_identifier}
+        logger.info(f"Table already exists: {table_identifier}")
+        return {
+            "success": True,
+            "status": "exists",
+            "table": table_identifier,
+            "message": "Table already exists (idempotent)"
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
+        logger.exception(f"Failed to create table {table_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_CREATION_FAILED",
+                "message": f"Failed to create table '{table_identifier}'",
+                "details": str(e),
+                "table": table_identifier
+            }
+        )
+
+# orderlineitems
+@router.post("/orderlineitems_test/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "orderlineitems_test"
+    # table_name = "iceberg_add_range_test"
+    table_identifier = f"{namespace}.{table_name}"
+
+    # Step 1: Define Iceberg schema
+    logger.info(f"Creating table: {table_identifier}")
+    orderlineitems_ff_schema = Schema(fields=OrderLineItems_test)
+
+
+    # Step 2: Define partition spec
+    transaction_partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=orderlineitems_ff_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    # Step 3: Connect to catalog
+    catalog = get_catalog_client()
+
+    # Step 4: Ensure namespace exists
+    try:
+        catalog.load_namespace_properties(namespace)
+    except NoSuchNamespaceError:
+        catalog.create_namespace(namespace)
+    except NamespaceAlreadyExistsError:
+        pass
+
+    # Step 5: Create table
+    try:
+        tbl = catalog.create_table(
+            identifier=table_identifier,
+            schema=orderlineitems_ff_schema,
+            partition_spec=transaction_partition_spec,
+            properties={
+                "format-version": "2",  # <-- mandatory
+                "table-type": "MERGE_ON_READ",  # <-- enable merge-on-read
+                "identifier-field-ids": "1", # order_id is PRIMARY KEY
+                "write.format.default": "parquet",
+                "write.parquet.compression-codec": "zstd",
+                "write.partition.path-style": "hierarchical",   # hierarchical & directory
+                # "write.sort.order": "month(Bill_Date__c) ASC, customerId,customer_mobile__c",
+                # "write.sort.order": "customerId,customer_mobile__c",
+                # "write.sort.order": "year ASC, order_id ASC",
+                "write.sort.order": "created_at ASC",
+                "write.target-file-size-bytes": "268435456"
+            },
+        )
+        logger.info(f"Successfully created Iceberg table: {table_identifier}")
+
+        # Step 6: Return confirmation
+        return {
+            "success": True,
+            "status": "created",
+            "table": table_identifier,
+            "schema_field_count": len(orderlineitems_ff_schema.fields),
+            "partition_by": "year(created_at)"
+        }
+
+    except TableAlreadyExistsError:
+        logger.info(f"Table already exists: {table_identifier}")
+        return {
+            "success": True,
+            "status": "exists",
+            "table": table_identifier,
+            "message": "Table already exists (idempotent)"
+        }
+    except Exception as e:
+        logger.exception(f"Failed to create table {table_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_CREATION_FAILED",
+                "message": f"Failed to create table '{table_identifier}'",
+                "details": str(e),
+                "table": table_identifier
+            }
+        )
 
 @router.post("/table/rename")
 def rename_table(
@@ -579,27 +692,47 @@ def rename_table(
 
 ):
 
+    logger.info(f"Renaming table from {old_identifier} to {new_identifier}")
+    
     catalog = get_catalog_client()
     try:
-
         old_identifier = f"{namespace}.{old_table_name}"
         new_identifier = f"{namespace}.{new_table_name}"
 
         catalog.rename_table(old_identifier, new_identifier)
+        
+        logger.info(f"Successfully renamed table: {old_identifier} -> {new_identifier}")
 
         return {
-            "status": "success",
-            "message": f"Table renamed from '{old_table_name}' to '{new_table_name}' in namespace '{namespace}' successfully."
+            "success": True,
+            "status": "renamed",
+            "old_table": old_identifier,
+            "new_table": new_identifier,
+            "message": f"Table renamed successfully"
         }
 
+    except NoSuchTableError:
+        logger.warning(f"Table not found for rename: {old_identifier}")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "TABLE_NOT_FOUND",
+                "message": f"Table '{old_identifier}' does not exist",
+                "table": old_identifier
+            }
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to rename table '{old_table_name}' in namespace '{namespace}': {str(e)}")
-
-    finally:
-        try:
-            catalog.close()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to close catalog: {str(e)}")
+        logger.exception(f"Failed to rename table {old_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_RENAME_FAILED",
+                "message": f"Failed to rename table '{old_identifier}'",
+                "details": str(e),
+                "old_table": old_identifier,
+                "new_table": new_identifier
+            }
+        )
 
 
 
@@ -609,15 +742,41 @@ def delete_table(
     table_name: str = Query(..., description="Name of the table to drop"),
 
 ):
+    logger.info(f"Deleting table: {full_table_name}")
+    
     catalog = get_catalog_client()
     full_table_name = f"{namespace}.{table_name}"
 
     try:
         catalog.drop_table(full_table_name)
-        return {"message": f"Table '{full_table_name}' dropped successfully."}
+        
+        logger.info(f"Successfully deleted table: {full_table_name}")
+        
+        return {
+            "success": True,
+            "status": "deleted",
+            "table": full_table_name,
+            "message": f"Table '{full_table_name}' deleted successfully"
+        }
 
     except NoSuchTableError:
-        raise HTTPException(status_code=404, detail=f"Table '{full_table_name}' does not exist.")
-
+        logger.warning(f"Table not found for deletion: {full_table_name}")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "TABLE_NOT_FOUND",
+                "message": f"Table '{full_table_name}' does not exist",
+                "table": full_table_name
+            }
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to drop table '{full_table_name}': {str(e)}")
+        logger.exception(f"Failed to delete table {full_table_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_DELETE_FAILED",
+                "message": f"Failed to delete table '{full_table_name}'",
+                "details": str(e),
+                "table": full_table_name
+            }
+        )

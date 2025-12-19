@@ -1,7 +1,7 @@
 from pyiceberg.catalog import NoSuchTableError
 from core.catalog_client import get_catalog_client
 from fastapi import APIRouter,HTTPException,Query
-from pyiceberg.expressions import And, EqualTo
+from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual, LessThanOrEqual
 import time
 from pyiceberg.expressions import And, EqualTo,GreaterThan,LessThan
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -594,53 +594,128 @@ def process_table(namespace: str, table_name: str, customer_mobile: str | None):
 #         "details": all_results
 #     }
 
-@router.get("/filters/ph-count")
-def filter_customer_phones_mysql(
-    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
-    # table_name: str = Query("transaction01", description="Iceberg table name"),
-    phone: str = Query(None, description="Filter by customer_mobile__c"),
-):
-    import datetime
-    start_time = time.perf_counter()
-    print(phone)
-    namespace, table_name = "order_fulfillment", "master_order"
+# @router.get("/filters/ph-count")
+# def filter_customer_phones_mysql(
+#     # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+#     # table_name: str = Query("transaction01", description="Iceberg table name"),
+#     phone: str = Query(None, description="Filter by customer_mobile__c"),
+# ):
+#     import datetime
+#     start_time = time.perf_counter()
+#     print(phone)
+#     namespace, table_name = "order_fulfillment", "master_order"
+#
+#     # Iceberg table identifier
+#     table_identifier = f"{namespace}.{table_name}"
+#
+#     catalog = get_catalog_client()
+#
+#     # --- Load the table ---
+#     try:
+#         tbl = catalog.load_table(table_identifier)
+#     except NoSuchTableError:
+#         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error loading table: {str(e)}")
+#
+#     # --- Build Iceberg Filter ---
+#     expr = None
+#     if phone:
+#         try:
+#             expr = EqualTo("customer_mobile__c", int(phone))
+#         except:
+#             raise HTTPException(status_code=400, detail="Invalid phone number")
+#
+#     # --- Perform scan ---
+#     print(expr)
+#     try:
+#         scan = tbl.scan(row_filter=expr).count()
+#         print(scan)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
+#
+#     timeline = round(time.perf_counter() - start_time, 3)
+#
+#     # --- Response ---
+#     return {
+#         "namespace": namespace,
+#         "table_name": table_name,
+#         "phone": phone,
+#         "count": scan,
+#         "timeline_seconds": timeline
+#     }
 
-    # Iceberg table identifier
+@router.get("/filters/get-orderlineitems_test")
+def filter_orderlineitems(
+    start_id: int | None = Query(None),
+    end_id: int | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
+    namespace, table_name = "order_fulfillment", "orderlineitems_test"
     table_identifier = f"{namespace}.{table_name}"
 
+    start_time = time.perf_counter()
     catalog = get_catalog_client()
 
-    # --- Load the table ---
-    try:
-        tbl = catalog.load_table(table_identifier)
-    except NoSuchTableError:
-        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading table: {str(e)}")
+    # -----------------------------
+    # Load table
+    # -----------------------------
+    tbl = catalog.load_table(table_identifier)
 
-    # --- Build Iceberg Filter ---
+    # -----------------------------
+    # Build Iceberg filter
+    # -----------------------------
     expr = None
-    if phone:
-        try:
-            expr = EqualTo("customer_mobile__c", int(phone))
-        except:
-            raise HTTPException(status_code=400, detail="Invalid phone number")
+    if start_id is not None and end_id is not None:
+        expr = And(
+            GreaterThanOrEqual("line_item_id", start_id),
+            LessThanOrEqual("line_item_id", end_id)
+        )
+    elif start_id is not None:
+        expr = GreaterThanOrEqual("line_item_id", start_id)
+    elif end_id is not None:
+        expr = LessThanOrEqual("line_item_id", end_id)
 
-    # --- Perform scan ---
-    print(expr)
-    try:
-        scan = tbl.scan(row_filter=expr).count()
-        print(scan)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
+    # -----------------------------
+    # Scan Iceberg
+    # -----------------------------
+    scan = tbl.scan(
+        row_filter=expr,
+        selected_fields=[
+            "line_item_id",
+            "order_line_item_id",
+            "master_order_id",
+            "created_at",
+        ],
+    )
+
+    df = scan.to_arrow().to_pandas()
+
+    # -----------------------------
+    # Apply LIMIT + OFFSET (client-side)
+    # -----------------------------
+    paged_df = df.iloc[offset : offset + limit]
 
     timeline = round(time.perf_counter() - start_time, 3)
 
-    # --- Response ---
     return {
-        "namespace": namespace,
-        "table_name": table_name,
-        "phone": phone,
-        "count": scan,
-        "timeline_seconds": timeline
+        "count": len(paged_df),
+        "limit": limit,
+        "offset": offset,
+        "rows": paged_df.to_dict(orient="records"),
+        "timeline_seconds": timeline,
     }
+############
+# test
+# @router.get("/powerbi/orderlineitems")
+# def powerbi_data(start_date: str, end_date: str):
+#     table = catalog.load_table("order_fulfillment.orderlineitems")
+#     df = table.scan(
+#         row_filter=And(
+#             GreaterThanOrEqual("created_at", start_date),
+#             LessThan("created_at", end_date)
+#         )
+#     ).to_pandas()
+#
+#     return df.to_dict(orient="records")

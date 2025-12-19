@@ -1,5 +1,6 @@
 from fastapi import APIRouter,Query,Body
 import time
+import uuid
 from core.mysql_client import MysqlCatalog
 from .masterOrderUtility import *
 from core.catalog_client import *
@@ -15,7 +16,7 @@ logger = get_logger("masterorder-w-api")
 router = APIRouter(prefix="", tags=["MasterOrder_w"])
 
 # insert-master-order-data
-#multithreading
+# multithreading
 
 @router.post("/masterorder-w/insert-master-order-data")
 def insert(
@@ -477,96 +478,136 @@ def insert_pickup_delivery_items(
 #         },
 #     }
 
+# @router.post("/masterorder-w/insert-without-mysql")
+# def insert_without_mysql(
+#     row: dict = Body(..., description="Single pickup-delivery item row"),
+# ):
+#
+#     namespace, table_name = "order_fulfillment", "masterorders_w"
+#     table_identifier = f"{namespace}.{table_name}"
+#
+#     # -------------------------------------------------
+#     # Step 1: Validate Input
+#     # -------------------------------------------------
+#     if not isinstance(row, dict):
+#         raise HTTPException(status_code=400, detail="Input must be a dictionary")
+#
+#     print("Received Row:", row)
+#
+#     # -------------------------------------------------
+#     # Step 2: Clean Row
+#     # -------------------------------------------------
+#
+#
+#     try:
+#         cleaned = masterOrder_clean_rows([row])     # pass as list internally
+#         if cleaned:
+#             row = cleaned[0]
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Row cleaning failed: {e}")
+#
+#
+#
+#     # -------------------------------------------------
+#     # Step 3: Infer Schema (Iceberg + Arrow)
+#     # -------------------------------------------------
+#
+#
+#     try:
+#         iceberg_schema, arrow_schema = masterorder_schema(row)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Schema inference failed: {e}")
+#
+#
+#
+#     # -------------------------------------------------
+#     # Step 4: Convert to Arrow Table (single row)
+#     # -------------------------------------------------
+#
+#
+#     try:
+#         arrow_table = pa.Table.from_pylist([row], schema=arrow_schema)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Arrow conversion failed: {e}")
+#
+#
+#
+#     # -------------------------------------------------
+#     # Step 5: Load Iceberg Table
+#     # -------------------------------------------------
+#
+#     catalog = get_catalog_client()
+#
+#     try:
+#         tbl = catalog.load_table(table_identifier)
+#     except NoSuchTableError:
+#         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Catalog load failed: {e}")
+#
+#
+#
+#     # -------------------------------------------------
+#     # Step 6: Append to Iceberg Table
+#     # -------------------------------------------------
+#
+#
+#     try:
+#         tbl.append(arrow_table)
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500,
+#             detail={
+#                 "error_code": "ICEBERG_APPEND_FAILED",
+#                 "message": f"Append failed for table {table_identifier}",
+#                 "exception": str(e),
+#             },
+#         )
+#
+#
+#
+#     return {
+#         "status_code":201,
+#         "success": True,
+#         "message": "successfully",
+#     }
+
+from routers.queue import order_queue
+
 @router.post("/masterorder-w/insert-without-mysql")
-def insert_without_mysql(
-    row: dict = Body(..., description="Single pickup-delivery item row"),
+async def insert_without_mysql(
+    row: dict = Body(...),
 ):
-
-    namespace, table_name = "order_fulfillment", "masterorders_w"
-    table_identifier = f"{namespace}.{table_name}"
-
-    # -------------------------------------------------
-    # Step 1: Validate Input
-    # -------------------------------------------------
-    if not isinstance(row, dict):
-        raise HTTPException(status_code=400, detail="Input must be a dictionary")
-
-    print("Received Row:", row)
-
-    # -------------------------------------------------
-    # Step 2: Clean Row
-    # -------------------------------------------------
-
-
-    try:
-        cleaned = masterOrder_clean_rows([row])     # pass as list internally
-        if cleaned:
-            row = cleaned[0]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Row cleaning failed: {e}")
-
-
-
-    # -------------------------------------------------
-    # Step 3: Infer Schema (Iceberg + Arrow)
-    # -------------------------------------------------
-
-
-    try:
-        iceberg_schema, arrow_schema = masterorder_schema(row)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Schema inference failed: {e}")
-
-
-
-    # -------------------------------------------------
-    # Step 4: Convert to Arrow Table (single row)
-    # -------------------------------------------------
-
-
-    try:
-        arrow_table = pa.Table.from_pylist([row], schema=arrow_schema)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Arrow conversion failed: {e}")
-
-
-
-    # -------------------------------------------------
-    # Step 5: Load Iceberg Table
-    # -------------------------------------------------
-
-    catalog = get_catalog_client()
-
-    try:
-        tbl = catalog.load_table(table_identifier)
-    except NoSuchTableError:
-        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Catalog load failed: {e}")
-
-
-
-    # -------------------------------------------------
-    # Step 6: Append to Iceberg Table
-    # -------------------------------------------------
-
-
-    try:
-        tbl.append(arrow_table)
-    except Exception as e:
+    # Validate input
+    if not isinstance(row, dict) or not row:
+        logger.error("Invalid input: expected non-empty dictionary")
         raise HTTPException(
-            status_code=500,
-            detail={
-                "error_code": "ICEBERG_APPEND_FAILED",
-                "message": f"Append failed for table {table_identifier}",
-                "exception": str(e),
-            },
+            status_code=400, 
+            detail="Input must be a non-empty dictionary"
         )
 
+     # Generate tracking ID
+    request_id = str(uuid.uuid4())
+    row["_request_id"] = request_id
 
-
-    return {
-        "status_code":201,
-        "success": True,
-        "message": "successfully",
-    }
+    try:
+        # Check queue capacity
+        if order_queue.full():
+            logger.warning(f"Queue full, rejecting request {request_id}")
+            raise HTTPException(
+                status_code=503,
+                detail="Queue is full, please retry later"
+            )
+        await order_queue.put(row)
+        logger.info(f"Request {request_id} queued successfully")
+        return {
+            "status_code": 202,
+            "success": True,
+            "message": "queued"
+        }
+    except Exception as e:
+        logger.error(f"Failed to queue request {request_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to queue request: {str(e)}"
+        )

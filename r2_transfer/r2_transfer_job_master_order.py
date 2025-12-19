@@ -6,18 +6,18 @@ from datetime import datetime
 
 # ------------------ CONFIGURATION ------------------
 
-API_URL = "http://127.0.0.1:8000/masterorder/insert-master-order-data"  # FastAPI endpoint
+API_URL = "http://127.0.0.1:8000/masterorder/insert-master-with-mysql"  # FastAPI endpoint
 
-BATCH_SIZE = 10000
+BATCH_SIZE = 50000
 START_ROWS = 0
-TOTAL_ROWS = 89
-chunk_size=1000
+TOTAL_ROWS = 261217
+
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/success_master_order.log"
-FAILED_LOG_FILE = "logs/error_master_order.log"
+SUCCESS_LOG_FILE = "logs/success_master_order_live.log"
+FAILED_LOG_FILE = "logs/error_master_order_live.log"
 
 # ------------------ LOGGING SETUP ------------------
 
@@ -42,7 +42,6 @@ failed_logger.setLevel(logging.ERROR)
 def transfer_batches():
     session = requests.Session()
     start = START_ROWS
-    # print(start)
     batch_no = 1
     total_batches = math.ceil(TOTAL_ROWS / BATCH_SIZE)
     success_batches = 0
