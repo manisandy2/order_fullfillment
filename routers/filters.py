@@ -1,10 +1,14 @@
 from pyiceberg.catalog import NoSuchTableError
 from core.catalog_client import get_catalog_client
-from fastapi import APIRouter,HTTPException,Query
+from fastapi import APIRouter,HTTPException,Query,Body
 from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual, LessThanOrEqual
 import time
+from typing import List
 from pyiceberg.expressions import And, EqualTo,GreaterThan,LessThan
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from core.db_colums import pickup_delivery_columns
+import pyarrow.compute as pc
 
 router = APIRouter(prefix="", tags=["filters"])
 
@@ -708,9 +712,15 @@ def filter_orderlineitems(
     }
 ############
 # test
-# @router.get("/powerbi/orderlineitems")
+# @router.get("/powerbi/masterorders")
 # def powerbi_data(start_date: str, end_date: str):
-#     table = catalog.load_table("order_fulfillment.orderlineitems")
+#     catalog = get_catalog_client()
+#     namespace, table_name = "order_fulfillment", "masterorders"
+#     table_identifier = f"{namespace}.{table_name}"
+#     table = catalog.load_table(table_identifier)
+#     # table = catalog.load_table("order_fulfillment.orderlineitems")
+#     print("start",start_date)
+#     print("end",end_date)
 #     df = table.scan(
 #         row_filter=And(
 #             GreaterThanOrEqual("created_at", start_date),
@@ -719,3 +729,636 @@ def filter_orderlineitems(
 #     ).to_pandas()
 #
 #     return df.to_dict(orient="records")
+
+
+POWER_BI_TABLE_CONFIG = {
+    "masterorders": {
+        "table_name": "masterorders",
+        "namespace": "order_fulfillment",
+        "date_column": "created_at",
+        "columns": [
+            "order_id",
+            "store_code",
+            "created_at",
+            "total_amount"
+        ],
+    },
+    "orderlineitems": {
+        "table_name": "orderlineitems",
+        "namespace": "order_fulfillment",
+        "date_column": "created_at",
+        "columns": [
+            "order_id",
+            "sku",
+            "qty",
+            "created_at"
+        ],
+    },
+    "pickup_delivery_items": {
+        "table_name": "pickup_delivery_items",
+        "namespace": "order_fulfillment",
+        "date_column": "created_at",
+        "columns": [
+            "order_id",
+            "pickup_status",
+            "created_at"
+        ],
+    },
+}
+
+import datetime
+from datetime import datetime
+
+@router.get("/powerbi/masterorders")
+def powerbi_masterorders(
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: str = Query(..., example="masterorders"),
+    start_date: str = Query(..., example="2025-01-01"),
+    end_date: str = Query(..., example="2025-01-31"),
+    limit: int = Query(100000, le=500000)
+):
+    """
+    Power BI optimized endpoint for Master Orders
+    """
+
+    # -------------------------------------------------
+    # 1. Parse & Validate Dates
+    # -------------------------------------------------
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Use ISO format YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"
+        )
+
+    if start_dt >= end_dt:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date must be earlier than end_date"
+        )
+
+    # -------------------------------------------------
+    # 2. Load Iceberg Table
+    # -------------------------------------------------
+    catalog = get_catalog_client()
+    table_identifier = f"{namespace}.{table_name}"
+
+    try:
+        table = catalog.load_table(table_identifier)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # -------------------------------------------------
+    # 3. Iceberg Filter (Predicate Pushdown)
+    # -------------------------------------------------
+    # row_filter = And(
+    #     GreaterThanOrEqual("created_at", start_dt),
+    #     LessThan("created_at", end_dt)
+    # )
+
+    row_filter = And(
+        GreaterThanOrEqual("invoice_date", start_dt),
+        LessThan("invoice_date", end_dt)
+    )
+
+    # -------------------------------------------------
+    # 4. Column Projection (IMPORTANT)
+    # -------------------------------------------------
+    master_columns = [
+        "order_id",
+        "sale_order_id",
+        "invoice_no",
+        "created_at",
+        "channel",
+        "invoice_date"
+    ]
+
+    pickup_columns = [
+        "pickup_delivery_req_item_id",
+        "pickup_delivery_req_id",
+        "order_id",
+        "sale_order_id",
+        "invoice_no",
+        "invoice_date",
+        "invoice_reff_no",
+        "invoice_reff_date"
+    ]
+
+
+
+    # -------------------------------------------------
+    # 5. Scan → Pandas
+    # -------------------------------------------------
+    try:
+        df = (
+            table.scan(
+                row_filter=row_filter,
+                selected_fields=pickup_columns,
+                limit=limit
+            )
+            .to_pandas()
+        )
+        # 🔹 Remove duplicate orders
+        df = df.drop_duplicates(subset=["pickup_delivery_req_item_id"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Iceberg scan failed: {e}")
+
+    # -------------------------------------------------
+    # 6. Return Power BI Friendly JSON
+    # -------------------------------------------------
+    return {
+        "count": len(df),
+        "data": df.to_dict(orient="records")
+    }
+
+@router.get("/powerbi/masterorders/count")
+def powerbi_masterorders_count(
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: str = Query(..., example="masterorders"),
+    start_date: str = Query(..., example="2025-01-01"),
+    end_date: str = Query(..., example="2025-01-31"),
+):
+    """
+    Power BI optimized COUNT-only endpoint for Master Orders
+    """
+
+    # -------------------------------------------------
+    # 1. Parse & Validate Dates
+    # -------------------------------------------------
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Use YYYY-MM-DD or ISO datetime"
+        )
+
+    if start_dt >= end_dt:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date must be earlier than end_date"
+        )
+
+    # -------------------------------------------------
+    # 2. Load Iceberg Table
+    # -------------------------------------------------
+    catalog = get_catalog_client()
+    table_identifier = f"{namespace}.{table_name}"
+
+    try:
+        table = catalog.load_table(table_identifier)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # -------------------------------------------------
+    # 3. Predicate Pushdown
+    # -------------------------------------------------
+    row_filter = And(
+        GreaterThanOrEqual("invoice_date", start_dt),
+        LessThan("invoice_date", end_dt)
+    )
+
+    # -------------------------------------------------
+    # 4. Iceberg Metadata COUNT (FAST)
+    # -------------------------------------------------
+    try:
+        count = table.scan(row_filter=row_filter).count()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Count failed: {e}")
+
+    # -------------------------------------------------
+    # 5. Return Power BI Friendly Response
+    # -------------------------------------------------
+    return {
+        "count": count
+    }
+import pyarrow as pa
+@router.get("/powerbi/masterorders/duplication-date-summary")
+def masterorders_duplication_summary(
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: str = Query(..., example="masterorders"),
+    start_date: str = Query(..., example="2025-01-01"),
+    end_date: str = Query(..., example="2025-01-31"),
+    columns: list[str] = Query(
+        ["order_id", "invoice_no"],
+        description="Columns to analyze"
+    ),
+):
+    """
+    R2 Iceberg – Unique & Duplicate count per column
+    (FAST, Power BI optimized)
+    """
+
+    # -------------------------------------------------
+    # 1. Parse Dates
+    # -------------------------------------------------
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(400, "Invalid date format")
+
+    if start_dt >= end_dt:
+        raise HTTPException(400, "start_date must be earlier than end_date")
+
+    # -------------------------------------------------
+    # 2. Load Iceberg Table (R2 Catalog)
+    # -------------------------------------------------
+    catalog = get_catalog_client()
+    table_id = f"{namespace}.{table_name}"
+
+    try:
+        table = catalog.load_table(table_id)
+    except Exception as e:
+        raise HTTPException(500, f"Table load failed: {e}")
+
+    # -------------------------------------------------
+    # 3. Iceberg Predicate Pushdown
+    # -------------------------------------------------
+    row_filter = And(
+        GreaterThanOrEqual("invoice_date", start_dt),
+        LessThan("invoice_date", end_dt)
+    )
+
+    # -------------------------------------------------
+    # 4. Column-wise Counters (NO Pandas)
+    # -------------------------------------------------
+    from collections import defaultdict
+
+    value_counts = {col: defaultdict(int) for col in columns}
+    total_rows = 0
+
+    try:
+        arrow_obj =  table.scan(
+            row_filter=row_filter,
+            selected_fields=columns
+        ).to_arrow()
+
+        # 🔹 Case 1: Already a PyArrow Table
+        if isinstance(arrow_obj, pa.Table):
+            total_rows = arrow_obj.num_rows
+
+            for col in columns:
+                for chunk in arrow_obj[col].chunks:
+                    for value in chunk.to_pylist():
+                        if value is not None:
+                            value_counts[col][value] += 1
+
+        # 🔹 Case 2: Iterable (RecordBatches)
+        else:
+            for record_batch in arrow_obj:
+                total_rows += record_batch.num_rows
+
+                for col in columns:
+                    for value in record_batch.column(col).to_pylist():
+                        if value is not None:
+                            value_counts[col][value] += 1
+
+
+    except Exception as e:
+        raise HTTPException(500, f"Iceberg scan failed: {e}")
+
+    # -------------------------------------------------
+    # 5. Build Summary
+    # -------------------------------------------------
+    summary = {}
+
+    for col, counts in value_counts.items():
+        unique_values = sum(1 for v in counts.values() if v == 1)
+        duplicate_rows = sum(v for v in counts.values() if v > 1)
+
+        summary[col] = {
+            "unique_values": unique_values,
+            "duplicate_rows": duplicate_rows,
+            "distinct_count": len(counts)
+        }
+
+    # -------------------------------------------------
+    # 6. Power BI Friendly Response
+    # -------------------------------------------------
+    return {
+        "table": table_id,
+        "total_rows_scanned": total_rows,
+        "summary": summary
+    }
+from collections import defaultdict
+@router.get("/powerbi/masterorders/duplication-summary")
+def masterorders_duplication_summary(
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: str = Query(..., example="masterorders"),
+    columns: list[str] = Query(
+        ["order_id", "invoice_no"],
+        description="Columns to analyze"
+    ),
+):
+    """
+    R2 Iceberg – Unique & Duplicate count per column
+    (FULL TABLE scan, FAST, Power BI optimized)
+    """
+
+    # -------------------------------------------------
+    # 1. Load Iceberg Table (R2 Catalog)
+    # -------------------------------------------------
+    catalog = get_catalog_client()
+    table_id = f"{namespace}.{table_name}"
+
+    try:
+        table = catalog.load_table(table_id)
+    except Exception as e:
+        raise HTTPException(500, f"Table load failed: {e}")
+
+    # -------------------------------------------------
+    # 2. Column-wise Counters (NO Pandas)
+    # -------------------------------------------------
+    value_counts = {col: defaultdict(int) for col in columns}
+    total_rows = 0
+
+    try:
+        arrow_obj = table.scan(
+            selected_fields=columns
+        ).to_arrow()
+
+        # 🔹 Case 1: PyArrow Table
+        if isinstance(arrow_obj, pa.Table):
+            total_rows = arrow_obj.num_rows
+
+            for col in columns:
+                for chunk in arrow_obj[col].chunks:
+                    for value in chunk.to_pylist():
+                        if value is not None:
+                            value_counts[col][value] += 1
+
+        # 🔹 Case 2: Iterable RecordBatches
+        else:
+            for record_batch in arrow_obj:
+                total_rows += record_batch.num_rows
+
+                for col in columns:
+                    for value in record_batch.column(col).to_pylist():
+                        if value is not None:
+                            value_counts[col][value] += 1
+
+    except Exception as e:
+        raise HTTPException(500, f"Iceberg scan failed: {e}")
+
+    # -------------------------------------------------
+    # 3. Build Summary
+    # -------------------------------------------------
+    summary = {}
+
+    for col, counts in value_counts.items():
+        summary[col] = {
+            "distinct_count": len(counts),
+            "unique_values": sum(1 for v in counts.values() if v == 1),
+            "duplicate_rows": sum(v for v in counts.values() if v > 1)
+        }
+
+    print(summary)
+    # -------------------------------------------------
+    # 4. Power BI Friendly Response
+    # -------------------------------------------------
+    return {
+        "table": table_id,
+        "total_rows_scanned": total_rows,
+        "summary": summary
+    }
+
+@router.get("/powerbi/masterorders/duplicate-data")
+def masterorders_duplicate_data(
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: str = Query(..., example="masterorders"),
+    columns: list[str] = Query(
+        ["order_id"],
+        description="Columns to find duplicate data"
+    ),
+    max_rows: int = Query(5000, description="Max duplicate rows to return")
+):
+    """
+    R2 Iceberg – Fetch duplicate ROW DATA (FULL TABLE)
+    """
+
+    # -------------------------------------------------
+    # 1. Load Iceberg Table
+    # -------------------------------------------------
+    catalog = get_catalog_client()
+    table_id = f"{namespace}.{table_name}"
+
+    try:
+        table = catalog.load_table(table_id)
+    except Exception as e:
+        raise HTTPException(500, f"Table load failed: {e}")
+
+    # -------------------------------------------------
+    # 2. FIRST PASS – Count values
+    # -------------------------------------------------
+    value_counts = {col: defaultdict(int) for col in columns}
+
+    try:
+        arrow_obj = table.scan(selected_fields=columns).to_arrow()
+
+        if isinstance(arrow_obj, pa.Table):
+            for col in columns:
+                for chunk in arrow_obj[col].chunks:
+                    for value in chunk.to_pylist():
+                        if value is not None:
+                            value_counts[col][value] += 1
+        else:
+            for batch in arrow_obj:
+                for col in columns:
+                    for value in batch.column(col).to_pylist():
+                        if value is not None:
+                            value_counts[col][value] += 1
+
+    except Exception as e:
+        raise HTTPException(500, f"Iceberg scan failed (count): {e}")
+
+    # -------------------------------------------------
+    # 3. Identify duplicate VALUES
+    # -------------------------------------------------
+    duplicate_values = {
+        col: {v for v, c in counts.items() if c > 1}
+        for col, counts in value_counts.items()
+    }
+
+    # -------------------------------------------------
+    # 4. SECOND PASS – Fetch duplicate ROWS
+    # -------------------------------------------------
+    duplicate_rows = []
+    total_scanned = 0
+
+    try:
+        arrow_obj = table.scan().to_arrow()
+
+        if isinstance(arrow_obj, pa.Table):
+            rows = arrow_obj.to_pylist()
+            for row in rows:
+                total_scanned += 1
+                if any(row.get(col) in duplicate_values[col] for col in columns):
+                    duplicate_rows.append(row)
+                if len(duplicate_rows) >= max_rows:
+                    break
+        else:
+            for batch in arrow_obj:
+                rows = batch.to_pylist()
+                for row in rows:
+                    total_scanned += 1
+                    if any(row.get(col) in duplicate_values[col] for col in columns):
+                        duplicate_rows.append(row)
+                    if len(duplicate_rows) >= max_rows:
+                        break
+
+    except Exception as e:
+        raise HTTPException(500, f"Iceberg scan failed (data): {e}")
+
+    # -------------------------------------------------
+    # 5. Response
+    # -------------------------------------------------
+    return {
+        "table": table_id,
+        "columns_checked": columns,
+        "duplicate_value_count": {
+            col: len(vals) for col, vals in duplicate_values.items()
+        },
+        "rows_returned": len(duplicate_rows),
+        "data": duplicate_rows
+    }
+
+@router.get("/filters/get-master-order_id")
+def filter_order_id(
+    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
+    # table_name: str = Query("transaction01", description="Iceberg table name"),
+    order_id: str | None = Query(None, description="customer_mobile")
+):
+    import datetime
+
+    namespace, table_name = "order_fulfillment", "masterorders"
+    """
+    Inspect an existing Iceberg table's metadata.
+    Optionally filter by partition values (bill_date, store_code, customer_mobile).
+    Adds a timeline field to measure total execution time.
+    """
+    start_time = time.perf_counter()  # Start timeline measurement
+
+    table_identifier = f"{namespace}.{table_name}"
+    catalog = get_catalog_client()
+
+    # --- Load the table ---
+    try:
+        tbl = catalog.load_table(table_identifier)
+    except NoSuchTableError:
+        raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading table: {str(e)}")
+
+    # --- Build filter expressions dynamically ---
+    expr = None
+    if order_id:
+        try:
+            cond = EqualTo("order_id", str(order_id))
+        except:
+            raise HTTPException(status_code=400, detail=f"Invalid filter value: {str(e)}")
+        expr = cond
+    # --- Perform scan ---
+    try:
+        scan = tbl.scan(row_filter=expr) if expr else tbl.scan()
+        df = scan.to_arrow().to_pandas()
+        # df = arrow_table.to_pandas().reset_index(drop=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
+
+    timeline = round(time.perf_counter() - start_time, 3)  # seconds (rounded to 3 decimals)
+
+    # --- Construct response ---
+    return {
+        "namespace": namespace,
+        "table_name": table_name,
+        "order_id": order_id,
+        "count": len(df),
+        "sample_rows": df.head(10).to_dict(orient="records"),
+        "timeline_seconds": timeline
+    }
+
+
+from pydantic import BaseModel
+class OrderDeleteRequest(BaseModel):
+    order_ids: List[str]
+
+@router.delete("/r2/masterorders/delete")
+def delete_order_id(
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: str = Query(..., example="masterorders"),
+    payload: OrderDeleteRequest = Body(...)
+):
+    """
+    DELETE order_id(s) from R2 Iceberg table
+    (implemented using Iceberg OVERWRITE – required)
+    """
+    order_ids = payload.order_ids
+
+
+    if not order_ids:
+        raise HTTPException(400, "order_ids cannot be empty")
+
+    catalog = get_catalog_client()
+    table_id = f"{namespace}.{table_name}"
+
+    # -------------------------------------------------
+    # 1. Load Table
+    # -------------------------------------------------
+    try:
+        table = catalog.load_table(table_id)
+    except Exception as e:
+        raise HTTPException(500, f"Table load failed: {e}")
+
+    # -------------------------------------------------
+    # 2. Read Table
+    # -------------------------------------------------
+    try:
+        arrow_tbl = table.scan().to_arrow()
+    except Exception as e:
+        raise HTTPException(500, f"Scan failed: {e}")
+
+    before_rows = arrow_tbl.num_rows
+
+    # 3️⃣ Convert order_ids → PyArrow array (IMPORTANT)
+    col_type = arrow_tbl.schema.field("order_id").type
+    order_ids_array = pa.array(order_ids, type=col_type)
+
+    # 4️⃣ DELETE = filter out order_ids
+    filtered_tbl = arrow_tbl.filter(
+        pc.invert(
+            pc.is_in(arrow_tbl["order_id"], value_set=order_ids_array)
+        )
+    )
+    after_rows = filtered_tbl.num_rows
+
+
+
+    if before_rows == after_rows:
+        return {
+            "status": "no_change",
+            "message": "order_id not found",
+            "rows_before": before_rows,
+            "rows_after": after_rows
+        }
+
+    # -------------------------------------------------
+    # 4. OVERWRITE (Iceberg DELETE)
+    # -------------------------------------------------
+    try:
+        table.overwrite(filtered_tbl)
+    except Exception as e:
+        raise HTTPException(500, f"Overwrite failed: {e}")
+
+    # -------------------------------------------------
+    # 5. Response
+    # -------------------------------------------------
+    return {
+        "status": "deleted",
+        "deleted_order_ids": order_ids,
+        "rows_deleted": before_rows - after_rows,
+        "rows_remaining": after_rows
+    }

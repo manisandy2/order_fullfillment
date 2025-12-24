@@ -742,7 +742,7 @@ def delete_table(
     table_name: str = Query(..., description="Name of the table to drop"),
 
 ):
-    logger.info(f"Deleting table: {full_table_name}")
+    logger.info(f"Deleting table: {table_name}")
     
     catalog = get_catalog_client()
     full_table_name = f"{namespace}.{table_name}"

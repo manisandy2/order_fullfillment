@@ -2,7 +2,7 @@ import mysql.connector
 from dotenv import load_dotenv
 import os
 from mysql.connector import Error
-from .schema_utility import pickup_delivery_schema
+from .db_colums import pickup_delivery_columns, masterorder_columns,orderlineitems_columns,status_events_columns
 
 load_dotenv()
 
@@ -13,10 +13,7 @@ def mysql_connect():
         mysql.connector.MySQLConnection if successful, None otherwise
     """
     print("Connecting to MySQL database...")
-    # print("Host",os.getenv("HOST"))
-    # print("USERNAME",os.getenv("USERNAME"))
-    # print(os.getenv("PASSWORD"))
-    # print(os.getenv("DATABASE"))
+    
     try:
         conn = mysql.connector.connect(
             host=os.getenv("HOST"),
@@ -104,7 +101,7 @@ class MysqlCatalog:
         self.cursor.execute(query, (start, end - start))
         return self.cursor.fetchall()
     
-    def get_master_order_w(self, table_name: str, start: int, end: int) -> list:
+    def get_master_order_w(self, table_name: str, start: int, end: int, stop_date :str) -> list:
         """Retrieve a range of order records with specific columns.
         
         Args:
@@ -116,18 +113,22 @@ class MysqlCatalog:
             List of order records within the specified range, or empty list on error
         """
         try:
+            columns = ", ".join(masterorder_columns)
             query = f"""
                 SELECT
-                    *
+                    {columns}
                 FROM `{table_name}`
-                where oms_data_migration_status = 1
+                where oms_data_migration_status = 0
+                    and created_at < %s
                 ORDER BY order_id ASC
                 LIMIT %s, %s
             """
-            self.cursor.execute(query, (start, end - start))
+            limit = end - start
+
+            self.cursor.execute(query, (stop_date,start,limit))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            print(f"MySQL fetch error in master_order_w: {e}")
             return []
     
     def get_master_order(self, table_name: str, start: int, end: int, stop_date :str) -> list:
@@ -142,10 +143,11 @@ class MysqlCatalog:
             List of order records within the specified range, or empty list on error
         """
         try:
+            columns = ", ".join(masterorder_columns)
             query = f"""
-                SELECT *
+                SELECT {columns}
                 FROM `{table_name}`
-                where oms_data_migration_status = 0
+                where oms_data_migration_status = 1
                     and created_at < %s
                 ORDER BY order_id ASC
                 LIMIT %s, %s
@@ -155,10 +157,10 @@ class MysqlCatalog:
             self.cursor.execute(query, (stop_date, start ,limit))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            print(f"MySQL fetch error in master_order: {e}")
             return []
         
-    def get_pickup_delivery_items(self, table_name: str, start: int, end: int) -> list:
+    def get_pickup_delivery_items(self, table_name: str, start: int, end: int, stop_date :str) -> list:
         """Retrieve a range of order records with specific columns.
         
         Args:
@@ -170,20 +172,23 @@ class MysqlCatalog:
             List of order records within the specified range, or empty list on error
         """
         try:
+            columns = ", ".join(pickup_delivery_columns)
             query = f"""
-                SELECT
-                    *
+                SELECT {columns}
                 FROM `{table_name}`
+                where oms_data_migration_status = 1
+                    and invoice_date < %s
                 ORDER BY pickup_delivery_req_item_id ASC
                 LIMIT %s, %s
             """
-            self.cursor.execute(query, (start, end - start))
+            limit = end - start
+            self.cursor.execute(query, (stop_date,start,limit))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            print(f"MySQL fetch error in pickup_delivery_items: {e}")
             return []
 
-    def get_pickup_delivery_items_w(self, table_name: str, start: int, end: int) -> list:
+    def get_pickup_delivery_items_w(self, table_name: str, start: int, end: int,stop_date :str) -> list:
         """Retrieve a range of pickup/delivery item records with specific columns.
         
         Args:
@@ -196,23 +201,25 @@ class MysqlCatalog:
         """
         try:
             # Convert list of column names to comma-separated string
-            columns = ", ".join(pickup_delivery_schema)
+            columns = ", ".join(pickup_delivery_columns)
             
             query = f"""
-                SELECT
-                    {columns}
+                SELECT {columns}
                 FROM `{table_name}`
-                WHERE oms_data_migration_status = 1
+                WHERE oms_data_migration_status = 0
+                    and invoice_date < %s
                 ORDER BY pickup_delivery_req_item_id ASC
                 LIMIT %s, %s
             """
-            self.cursor.execute(query, (start, end - start))
+            limit = end - start
+
+            self.cursor.execute(query, (stop_date, start,limit))
             return self.cursor.fetchall()
         except Exception as e:
             print(f"MySQL fetch error in get_pickup_delivery_items_w: {e}")
             return []
     
-    def get_status_events(self, table_name: str, start: int, end: int) -> list:
+    def get_status_events(self, table_name: str, start: int, end: int,stop_date :str) -> list:
         """Retrieve a range of order records with specific columns.
         
         Args:
@@ -224,18 +231,20 @@ class MysqlCatalog:
             List of order records within the specified range, or empty list on error
         """
         try:
+            columns = ", ".join(status_events_columns)
             query = f"""
-                SELECT
-                    *
+                SELECT {columns}
                 FROM `{table_name}`
-                where oms_data_migration_status = 1
+                where oms_data_migration_status = 0
+                    and invoice_date < %s
                 ORDER BY status_event_id ASC
                 LIMIT %s, %s
             """
-            self.cursor.execute(query, (start, end - start))
+            limit = end - start
+            self.cursor.execute(query, (stop_date,start,limit))
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"MySQL fetch error in get_range_ph_bi: {e}")
+            print(f"MySQL fetch error in status_events: {e}")
             return []
         
     def get_orderlineitems(self, table_name: str, start: int, end: int, stop_date: str) -> list:

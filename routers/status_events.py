@@ -21,7 +21,7 @@ router = APIRouter(prefix="", tags=["Status Events"])
 def multi_within_mysql(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
-    chunk_size: int = Query(1000, description="Chunk size for multithreading"),
+    chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "status_events"
@@ -39,8 +39,11 @@ def multi_within_mysql(
 
 
     try:
-        rows = mysql_creds.get_status_events(dbname, start_range, end_range)
-        
+        start_time = time.time()
+        rows = mysql_creds.get_status_events(dbname, start_range, end_range,"2025-12-12")
+
+        print("mysql fetch time", time.time() - start_time)
+
         if not rows:
             logger.warning("No rows found for given range")
             raise HTTPException(status_code=400, detail="No data found in the given range.")
@@ -79,7 +82,6 @@ def multi_within_mysql(
     failed_chunks = []  # Track failed chunks for error handling
     logger.info(f"Arrow conversion started | chunks={len(chunks)}")
     try:
-
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {executor.submit(process_chunk, chunk, arrow_schema): idx for idx, chunk in enumerate(chunks)}
 

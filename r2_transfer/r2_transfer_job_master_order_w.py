@@ -8,16 +8,16 @@ from datetime import datetime
 
 API_URL = "http://127.0.0.1:8000/masterorder-w/insert-master-order-data"  # FastAPI endpoint
 
-BATCH_SIZE = 10000
+BATCH_SIZE = 50000
 START_ROWS = 0
-TOTAL_ROWS = 197011
+TOTAL_ROWS = 1570692
 chunk_size=10000
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/success_master_order_w.log"
-FAILED_LOG_FILE = "logs/error_master_order_w.log"
+SUCCESS_LOG_FILE = "logs/success_master_order_w_live.log"
+FAILED_LOG_FILE = "logs/error_master_order_w_live.log"
 
 # ------------------ LOGGING SETUP ------------------
 

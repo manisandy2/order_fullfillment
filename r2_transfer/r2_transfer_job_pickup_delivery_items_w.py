@@ -8,15 +8,15 @@ from datetime import datetime
 
 API_URL = "http://127.0.0.1:8000/pickup-delivery-items-w/insert-multi-with-mysql"  # FastAPI endpoint
 # /pickup-delivery-items-w/insert-multi-with-mysql
-BATCH_SIZE = 10000
-START_ROWS = 0
-TOTAL_ROWS = 197010
+BATCH_SIZE = 50000
+START_ROWS = 400000
+TOTAL_ROWS = 2499930
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/success_pickup-delivery-items-w.log"
-FAILED_LOG_FILE = "logs/error_pickup-delivery-items-w.log"
+SUCCESS_LOG_FILE = "logs/success_pickup-delivery-items-w-live.log"
+FAILED_LOG_FILE = "logs/error_pickup-delivery-items-w-live.log"
 
 # ------------------ LOGGING SETUP ------------------
 

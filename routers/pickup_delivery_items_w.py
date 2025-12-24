@@ -20,7 +20,7 @@ router = APIRouter(prefix="", tags=["Pick up Delivery Items W"])
 def multi_within_mysql(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
-    chunk_size: int = Query(1000, description="Chunk size for multithreading"),
+    chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "pickup_delivery_items_w"
@@ -38,8 +38,9 @@ def multi_within_mysql(
     # -------------------------------------------------
 
     try:
-        rows = mysql_creds.get_pickup_delivery_items_w(dbname, start_range, end_range)
-
+        mysql_start = time.time()
+        rows = mysql_creds.get_pickup_delivery_items_w(dbname, start_range, end_range,"2025-12-12")
+        print("mysql fetch time:", time.time() - mysql_start)
 
         if not rows:
             logger.warning("No rows found for given range")

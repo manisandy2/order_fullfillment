@@ -22,7 +22,7 @@ router = APIRouter(prefix="", tags=["MasterOrder_w"])
 def insert(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
-    chunk_size: int = Query(1000, description="Chunk size for multithreading"),
+    chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "masterorders_w"
@@ -40,7 +40,9 @@ def insert(
     # -------------------------------------------------
 
     try:
-        rows = mysql_creds.get_master_order_w(dbname, start_range, end_range)
+        start_time = time.time()
+        rows = mysql_creds.get_master_order_w(dbname, start_range, end_range,"2025-12-12")
+        print("mysql fetch time", time.time() - start_time)
 
         if not rows:
             logger.warning("No rows found for given range")
@@ -78,6 +80,7 @@ def insert(
 
 
     arrow_tables = []
+    failed_chunks = []
     logger.info(f"Arrow conversion started | chunks={len(chunks)}")
     try:
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -91,6 +94,11 @@ def insert(
                     logger.info(f"Chunk {idx + 1}/{len(chunks)} processed with {tbl.num_rows} rows")
                 except Exception as e:
                     logger.exception("Arrow chunk conversion failed")
+                    failed_chunks.append({
+                        "chunk_index": idx,
+                        "chunk_data": chunks[idx],
+                        "error": str(e)
+                    })
                     raise HTTPException(status_code=500, detail=f"Arrow chunk conversion failed: {e}")
     except Exception:
         logger.exception("Arrow conversion failed")
@@ -99,6 +107,39 @@ def insert(
     arrow_end = time.time()
     logger.info(f"Arrow conversion completed in {arrow_end - arrow_start:.2f}s")
 
+    # Handle failed chunks - save to error table
+    error_save_result = None
+    if failed_chunks:
+        from .error_handler import handle_ingestion_error
+
+        logger.warning(f"{len(failed_chunks)} chunks failed during Arrow conversion")
+
+        # Flatten failed records from all failed chunks
+        failed_records = []
+        for failed_chunk in failed_chunks:
+            failed_records.extend(failed_chunk["chunk_data"])
+
+        # Save to error table
+        error_save_result = handle_ingestion_error(
+            table_name=table_name,
+            failed_records=failed_records,
+            error_type="ARROW_CONVERSION_FAILED",
+            error_message=f"Failed chunks: {[fc['chunk_index'] for fc in failed_chunks]}",
+            use_error_table=True
+        )
+
+        logger.info(f"Saved {len(failed_records)} failed records to error table")
+
+    # If all chunks failed, raise error
+    if not arrow_tables:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "All chunks failed during Arrow conversion",
+                "failed_chunks": len(failed_chunks),
+                "error_table_result": error_save_result
+            }
+        )
     # -------------------------------------------------
     # Step 4: Load Iceberg Table
     # -------------------------------------------------
@@ -117,13 +158,21 @@ def insert(
         raise HTTPException(status_code=500, detail=str(e))
 
     append_start = time.time()
+    failed_batches = []
     try:
         for i, batch in enumerate(arrow_tables, start=1):
-            tbl.append(batch)  # commit each
-            logger.info(
-                f"Iceberg append success | batch={i}/{len(arrow_tables)} rows={batch.num_rows}"
-            )
-
+            try:
+                tbl.append(batch)  # commit each
+                logger.info(
+                    f"Iceberg append success | batch={i}/{len(arrow_tables)} rows={batch.num_rows}"
+                )
+            except Exception as batch_error:
+                logger.error(f"Batch {i} append failed: {batch_error}")
+                failed_batches.append({
+                    "batch_index": i,
+                    "batch_data": batch.to_pylist(),
+                    "error": str(batch_error)
+                })
     except Exception as e:
         logger.exception("Iceberg append failed")
         raise HTTPException(
@@ -134,25 +183,64 @@ def insert(
                 "exception": str(e),
             },
         )
+    # Handle failed batch appends
+    batch_error_result = None
+    if failed_batches:
+        from .error_handler import handle_ingestion_error
+
+        logger.warning(f"{len(failed_batches)} batches failed during Iceberg append")
+
+        # Flatten failed records from all failed batches
+        failed_records = []
+        for failed_batch in failed_batches:
+            failed_records.extend(failed_batch["batch_data"])
+
+        # Save to error table
+        batch_error_result = handle_ingestion_error(
+            table_name=table_name,
+            failed_records=failed_records,
+            error_type="ICEBERG_APPEND_FAILED",
+            error_message=f"Failed batches: {[fb['batch_index'] for fb in failed_batches]}",
+            use_error_table=True
+        )
+
+        logger.info(f"Saved {len(failed_records)} failed records from append errors to error table")
+
     append_end = time.time()
     total_end = time.time()
+
+    successful_rows = len(rows) - len([r for fc in failed_chunks for r in fc.get("chunk_data", [])]) - len(
+        [r for fb in failed_batches for r in fb.get("batch_data", [])])
+
     logger.info(
-        f"END ingestion | rows={len(rows)} total_time={total_end - total_start:.2f}s"
+        f"END ingestion | total_rows={len(rows)} successful={successful_rows} "
+        f"failed_chunks={len(failed_chunks)} failed_batches={len(failed_batches)} "
+        f"total_time={total_end - total_start:.2f}s"
     )
-    # -------------------------------------------------
-    # Step 6: Return Response
-    # -------------------------------------------------
-    return {
+
+    response = {
         "success": True,
-        "message": "Data appended successfully with multithreading",
+        "message": "Data ingestion completed with error handling",
         "rows_fetched": len(rows),
+        "rows_successful": successful_rows,
         "chunks": len(chunks),
+        "chunks_successful": len(arrow_tables),
+        "chunks_failed": len(failed_chunks),
+        "batches_failed": len(failed_batches),
         "execution_times": {
             "arrow_convert": round(arrow_end - arrow_start, 2),
-            "append": round(append_end - append_start, 2),
+            "append_refresh": round(append_end - append_start, 2),
             "total_time": round(total_end - total_start, 2),
         },
     }
+
+    # Add error handling results if any failures occurred
+    if error_save_result:
+        response["arrow_conversion_errors"] = error_save_result
+    if batch_error_result:
+        response["append_errors"] = batch_error_result
+
+    return response
 
 @router.post("/masterorder-w/insert-single-within-mysql")
 def insert_pickup_delivery_items(
