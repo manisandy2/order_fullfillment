@@ -6,9 +6,13 @@ import time
 from typing import List
 from pyiceberg.expressions import And, EqualTo,GreaterThan,LessThan
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+from typing import Annotated
 from core.db_colums import pickup_delivery_columns
 import pyarrow.compute as pc
+from pyiceberg.expressions import AlwaysTrue
+from .table_utility import TABLE_LIST
+import datetime
+from datetime import datetime
 
 router = APIRouter(prefix="", tags=["filters"])
 
@@ -16,7 +20,7 @@ router = APIRouter(prefix="", tags=["filters"])
 def filter_customer_phone_master_order(
     # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
     # table_name: str = Query("transaction01", description="Iceberg table name"),
-    customer_mobile: str | None = Query(None, description="customer_mobile")
+    cust_primary_contact: str | None = Query(None, description="cust_primary_contact")
 ):
     import datetime
 
@@ -41,9 +45,9 @@ def filter_customer_phone_master_order(
 
     # --- Build filter expressions dynamically ---
     expr = None
-    if customer_mobile:
+    if cust_primary_contact:
         try:
-            cond = EqualTo("cust_primary_contact", str(customer_mobile))
+            cond = EqualTo("cust_primary_contact", str(cust_primary_contact))
         except:
             raise HTTPException(status_code=400, detail=f"Invalid filter value: {str(e)}")
         expr = cond
@@ -61,7 +65,7 @@ def filter_customer_phone_master_order(
     return {
         "namespace": namespace,
         "table_name": table_name,
-        "customer_mobile": customer_mobile,
+        "customer_mobile": cust_primary_contact,
         "count": len(df),
         "sample_rows": df.head(10).to_dict(orient="records"),
         "timeline_seconds": timeline
@@ -416,25 +420,32 @@ def filter_exact_date(
 @router.get("/filters/date-range")
 def filter_between_date_range(
     # namespace: str = Query("pos_transactions"),
-    # table_name: str = Query("iceberg_with_partitioning"),
+    table_name: str = Query(...,deprecated="table name"),
     start_date: str = Query(..., description="YYYY-MM-DD"),
     end_date: str = Query(..., description="YYYY-MM-DD"),
-    phone: str | None = Query(None, description="Filter by customer_mobile__c")
+    limit: int = Query(1000, ge=1, le=5000)
 ):
     from pyiceberg.expressions import And, GreaterThanOrEqual, LessThanOrEqual, EqualTo
     import datetime
-    start = time.perf_counter()
-    namespace, table_name = "order_fulfillment", "master_order"
+    import time
 
+    start = time.perf_counter()
+
+    # namespace, table_name = "order_fulfillment", "masterorders"
+    namespace = "order_fulfillment"
+    table_identifier = f"{namespace}.{table_name}"
     # validate dates
     try:
-        d1 = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
-        d2 = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+        start_dt = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d")
     except:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-    table_identifier = f"{namespace}.{table_name}"
+    start_ts = datetime.datetime.combine(start_dt, datetime.time.min)
+    end_ts = datetime.datetime.combine(end_dt, datetime.time.max)
+
     catalog = get_catalog_client()
+    print("table_name",table_identifier)
 
     try:
         tbl = catalog.load_table(table_identifier)
@@ -443,21 +454,15 @@ def filter_between_date_range(
 
     # base expr = date range
     expr = And(
-        GreaterThanOrEqual("Bill_Date__c", d1),
-        LessThanOrEqual("Bill_Date__c", d2),
+        GreaterThanOrEqual("created_at", start_ts),
+        LessThanOrEqual("created_at", end_ts),
     )
 
-    # add phone filter if present
-    if phone:
-        try:
-            phone_int = int(phone)
-        except:
-            raise HTTPException(status_code=400, detail="phone must be integer digits")
-        expr = And(expr, EqualTo("customer_mobile__c", phone_int))
 
     # scan / read data
     try:
-        df = tbl.scan(row_filter=expr).to_arrow().to_pandas().reset_index(drop=True)
+        arrow_tbl = tbl.scan(row_filter=expr).to_arrow()
+        df = arrow_tbl.to_pandas().head(limit).reset_index(drop=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading data: {str(e)}")
 
@@ -466,10 +471,217 @@ def filter_between_date_range(
         "table_name": table_name,
         "start_date": start_date,
         "end_date": end_date,
-        "phone": phone,
-        "count": len(df),
-        "sample_rows": df.head(10).to_dict(orient="records"),
-        "timeline_seconds": round(time.perf_counter() - start, 3)
+        "count": int(len(df)),
+        # "sample_rows": df.head(10).to_dict(orient="records"),
+        "timeline_seconds":float(round(time.perf_counter() - start, 3)),
+        # "data": df.to_dict(orient="records"),
+        "data_order_id":df[["order_id"]].to_dict(orient="records"),
+    }
+
+# @router.delete("/filters/date-range")
+# def delete_between_date_range(
+#     start_date: str = Query(..., description="YYYY-MM-DD"),
+#     end_date: str = Query(..., description="YYYY-MM-DD"),
+#     dry_run: bool = Query(True, description="If true, only count rows (no delete)")
+# ):
+#     import datetime
+#     import time
+#     from fastapi import HTTPException
+#     from pyiceberg.expressions import And, GreaterThanOrEqual, LessThan, EqualTo
+#     from pyiceberg.exceptions import NoSuchTableError
+#
+#     start_time = time.perf_counter()
+#
+#     namespace, table_name = "order_fulfillment", "masterorders"
+#     table_identifier = f"{namespace}.{table_name}"
+#
+#     # ---------- DATE VALIDATION ----------
+#     try:
+#         start_dt = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+#         end_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+#     except ValueError:
+#         raise HTTPException(400, "Invalid date format. Use YYYY-MM-DD")
+#
+#     start_ts = datetime.datetime.combine(start_dt, datetime.time.min)
+#     end_ts = datetime.datetime.combine(end_dt, datetime.time.max)
+#
+#     # ---------- LOAD TABLE ----------
+#     catalog = get_catalog_client()
+#     try:
+#         tbl = catalog.load_table(table_identifier)
+#     except NoSuchTableError:
+#         raise HTTPException(404, f"Table not found: {table_identifier}")
+#
+#     # ---------- BUILD FILTER ----------
+#     expr = And(
+#         GreaterThanOrEqual("created_at", start_ts),
+#         LessThan("created_at", end_ts),
+#     )
+#
+#
+#     # ---------- DRY RUN (COUNT ONLY) ----------
+#     if dry_run:
+#         count = tbl.scan(row_filter=expr).count()
+#         return {
+#             "dry_run": True,
+#             "table": table_identifier,
+#             "rows_matched": count,
+#             "execution_seconds": round(time.perf_counter() - start_time, 3)
+#         }
+#
+#     # ---------- DELETE ----------
+#     # try:
+#     #     tbl.overwrite(expr)
+#     # except Exception as e:
+#     #     raise HTTPException(500, f"Iceberg delete failed: {e}")
+#
+#     try:
+#         catalog.overwrite_table(
+#             identifier=table_identifier,
+#             data=filtered_tbl
+#         )
+#     except Exception as e:
+#         raise HTTPException(500, f"Overwrite failed: {e}")
+#
+#
+#     return {
+#         "dry_run": False,
+#         "message": "Delete committed",
+#         "snapshot_id": last_snapshot.snapshot_id,
+#         "operation": last_snapshot.summary.get("operation"),
+#         "deleted_records": last_snapshot.summary.get("deleted-records"),
+#         "execution_seconds": round(time.perf_counter() - start_time, 3)
+#     }
+
+@router.delete("/filters/date-range")
+def delete_between_date_range(
+    start_date: str = Query(..., description="YYYY-MM-DD"),
+    end_date: str = Query(..., description="YYYY-MM-DD"),
+    dry_run: bool = Query(True)
+):
+    import datetime, time
+    import pyarrow as pa
+    import pyarrow.compute as pc
+    from fastapi import HTTPException
+    from pyiceberg.exceptions import NoSuchTableError
+
+    start_time = time.perf_counter()
+    table_identifier = "order_fulfillment.masterorders"
+
+    # ------------------ DATE PARSE ------------------
+    try:
+        start_dt = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(400, "Invalid date format")
+
+    start_ts = datetime.datetime.combine(start_dt, datetime.time.min)
+    end_ts = datetime.datetime.combine(end_dt, datetime.time.max)
+
+    # ------------------ LOAD TABLE ------------------
+    catalog = get_catalog_client()
+    try:
+        table = catalog.load_table(table_identifier)
+    except NoSuchTableError:
+        raise HTTPException(404, "Table not found")
+
+    # ------------------ FULL SCAN ------------------
+    try:
+        arrow_tbl = table.scan().to_arrow()
+    except Exception as e:
+        raise HTTPException(500, f"Scan failed: {e}")
+
+    before_rows = arrow_tbl.num_rows
+
+    if "created_at" not in arrow_tbl.schema.names:
+        raise HTTPException(400, "created_at column not found")
+
+    # ------------------ FILTER (KEEP ROWS) ------------------
+    keep_mask = pc.or_(
+        pc.less(arrow_tbl["created_at"], pa.scalar(start_ts)),
+        pc.greater_equal(arrow_tbl["created_at"], pa.scalar(end_ts))
+    )
+
+    filtered_tbl = arrow_tbl.filter(keep_mask)
+    after_rows = filtered_tbl.num_rows
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "rows_to_delete": before_rows - after_rows,
+            "rows_remaining": after_rows
+        }
+
+    if before_rows == after_rows:
+        return {
+            "status": "no_change",
+            "message": "No rows matched date range"
+        }
+
+    # ------------------ OVERWRITE (REAL DELETE) ------------------
+    try:
+        catalog.overwrite_table(
+            identifier=table_identifier,
+            data=filtered_tbl
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Overwrite failed: {e}")
+
+    return {
+        "status": "deleted",
+        "rows_deleted": before_rows - after_rows,
+        "rows_remaining": after_rows,
+        "execution_seconds": round(time.perf_counter() - start_time, 3)
+    }
+
+@router.get("/iceberg/snapshots")
+def list_iceberg_snapshots(
+    operation: str | None = Query(
+        None, description="Filter by operation: delete, append, overwrite"
+    ),
+    limit: int = Query(10, ge=1, le=50)
+):
+    from datetime import datetime
+    from fastapi import HTTPException
+    from pyiceberg.exceptions import NoSuchTableError
+
+    namespace, table_name = "order_fulfillment", "masterorders"
+    table_identifier = f"{namespace}.{table_name}"
+
+    catalog = get_catalog_client()
+
+    try:
+        tbl = catalog.load_table(table_identifier)
+    except NoSuchTableError:
+        raise HTTPException(404, "Table not found")
+
+    snapshots = tbl.metadata.snapshots or []
+
+    results = []
+    for s in snapshots:
+        op = s.summary.get("operation") if s.summary else None
+
+        if operation and op != operation:
+            continue
+
+        results.append({
+            "snapshot_id": s.snapshot_id,
+            "operation": op,
+            "deleted_records": s.summary.get("deleted-records") if s.summary else None,
+            "added_records": s.summary.get("added-records") if s.summary else None,
+            "timestamp": datetime.fromtimestamp(
+                s.timestamp_ms / 1000
+            ).isoformat(),
+        })
+
+    # newest first
+    results = sorted(results, key=lambda x: x["timestamp"], reverse=True)[:limit]
+
+    return {
+        "table": table_identifier,
+        "total_snapshots": len(snapshots),
+        "filtered_snapshots": len(results),
+        "snapshots": results,
     }
 
 @router.get("/filters/pri_id")
@@ -766,8 +978,7 @@ POWER_BI_TABLE_CONFIG = {
     },
 }
 
-import datetime
-from datetime import datetime
+
 
 @router.get("/powerbi/masterorders")
 def powerbi_masterorders(
@@ -873,10 +1084,17 @@ def powerbi_masterorders(
         "data": df.to_dict(orient="records")
     }
 
-@router.get("/powerbi/masterorders/count")
-def powerbi_masterorders_count(
+@router.get("/filters/count")
+def date_between_count(
     namespace: str = Query(..., example="order_fulfillment"),
-    table_name: str = Query(..., example="masterorders"),
+    # table_name: str = Query(..., example="masterorders"),
+    table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
     start_date: str = Query(..., example="2025-01-01"),
     end_date: str = Query(..., example="2025-01-31"),
 ):
@@ -936,10 +1154,17 @@ def powerbi_masterorders_count(
         "count": count
     }
 import pyarrow as pa
-@router.get("/powerbi/masterorders/duplication-date-summary")
-def masterorders_duplication_summary(
+@router.get("/filters/duplication-date-summary")
+def duplication_summary(
     namespace: str = Query(..., example="order_fulfillment"),
-    table_name: str = Query(..., example="masterorders"),
+    # table_name: str = Query(..., example="masterorders"),
+    table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
     start_date: str = Query(..., example="2025-01-01"),
     end_date: str = Query(..., example="2025-01-31"),
     columns: list[str] = Query(
@@ -1045,23 +1270,24 @@ def masterorders_duplication_summary(
         "summary": summary
     }
 from collections import defaultdict
-@router.get("/powerbi/masterorders/duplication-summary")
-def masterorders_duplication_summary(
+@router.get("/filters/duplication-summary")
+def duplication_summary(
     namespace: str = Query(..., example="order_fulfillment"),
-    table_name: str = Query(..., example="masterorders"),
+    # table_name: str = Query(..., example="masterorders"),
+
+    table_name: Annotated[
+        str,
+        Query(
+            description="Select Iceberg table",
+            enum=TABLE_LIST
+        )
+    ] = "masterorders",
     columns: list[str] = Query(
         ["order_id", "invoice_no"],
         description="Columns to analyze"
     ),
 ):
-    """
-    R2 Iceberg – Unique & Duplicate count per column
-    (FULL TABLE scan, FAST, Power BI optimized)
-    """
 
-    # -------------------------------------------------
-    # 1. Load Iceberg Table (R2 Catalog)
-    # -------------------------------------------------
     catalog = get_catalog_client()
     table_id = f"{namespace}.{table_name}"
 
@@ -1126,23 +1352,25 @@ def masterorders_duplication_summary(
         "summary": summary
     }
 
-@router.get("/powerbi/masterorders/duplicate-data")
-def masterorders_duplicate_data(
+@router.get("/filters/duplicate-data")
+def duplicate_data(
     namespace: str = Query(..., example="order_fulfillment"),
-    table_name: str = Query(..., example="masterorders"),
+    # table_name: str = Query(..., example="masterorders"),
+    table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
+
     columns: list[str] = Query(
         ["order_id"],
         description="Columns to find duplicate data"
     ),
     max_rows: int = Query(5000, description="Max duplicate rows to return")
 ):
-    """
-    R2 Iceberg – Fetch duplicate ROW DATA (FULL TABLE)
-    """
 
-    # -------------------------------------------------
-    # 1. Load Iceberg Table
-    # -------------------------------------------------
     catalog = get_catalog_client()
     table_id = f"{namespace}.{table_name}"
 
@@ -1183,9 +1411,6 @@ def masterorders_duplicate_data(
         for col, counts in value_counts.items()
     }
 
-    # -------------------------------------------------
-    # 4. SECOND PASS – Fetch duplicate ROWS
-    # -------------------------------------------------
     duplicate_rows = []
     total_scanned = 0
 
@@ -1213,9 +1438,7 @@ def masterorders_duplicate_data(
     except Exception as e:
         raise HTTPException(500, f"Iceberg scan failed (data): {e}")
 
-    # -------------------------------------------------
-    # 5. Response
-    # -------------------------------------------------
+
     return {
         "table": table_id,
         "columns_checked": columns,
@@ -1226,15 +1449,21 @@ def masterorders_duplicate_data(
         "data": duplicate_rows
     }
 
-@router.get("/filters/get-master-order_id")
+@router.get("/filters/get-master-orderId")
 def filter_order_id(
-    # namespace: str = Query("pos_transactions01", description="Iceberg namespace name"),
-    # table_name: str = Query("transaction01", description="Iceberg table name"),
-    order_id: str | None = Query(None, description="customer_mobile")
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
+    order_id: str | None = Query(None, description="OrderId")
 ):
     import datetime
 
-    namespace, table_name = "order_fulfillment", "masterorders"
+    # namespace, table_name = "order_fulfillment", "masterorders"
     """
     Inspect an existing Iceberg table's metadata.
     Optionally filter by partition values (bill_date, store_code, customer_mobile).
@@ -1289,7 +1518,14 @@ class OrderDeleteRequest(BaseModel):
 @router.delete("/r2/masterorders/delete")
 def delete_order_id(
     namespace: str = Query(..., example="order_fulfillment"),
-    table_name: str = Query(..., example="masterorders"),
+    # table_name: str = Query(..., example="masterorders"),
+    table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
     payload: OrderDeleteRequest = Body(...)
 ):
     """
@@ -1362,3 +1598,65 @@ def delete_order_id(
         "rows_deleted": before_rows - after_rows,
         "rows_remaining": after_rows
     }
+
+
+
+@router.get("/iceberg/last-date")
+def get_last_date_value(
+    namespace: str = Query(..., example="order_fulfillment"),
+        table: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
+    column: str = Query("created_at", example="created_at")
+):
+    """
+    Fetch the latest (MAX) date/timestamp from an Iceberg table
+    """
+
+    try:
+        catalog = get_catalog_client()
+        table_identifier = f"{namespace}.{table}"
+        iceberg_table = catalog.load_table(table_identifier)
+
+        # ---- FAST STRATEGY ----
+        # Read only 1 row sorted DESC (no full scan)
+        scan = (
+            iceberg_table.scan(
+                row_filter=AlwaysTrue(),
+                selected_fields=[column]
+            )
+            .to_arrow()
+        )
+
+        if scan.num_rows == 0:
+            return {
+                "namespace": namespace,
+                "table": table,
+                "column": column,
+                "last_value": None
+            }
+
+        # Convert to pandas (small data only)
+        df = scan.to_pandas()
+
+        last_value = df[column].max()
+
+        return {
+            "namespace": namespace,
+            "table": table,
+            "column": column,
+            "last_value": (
+                last_value.isoformat()
+                if isinstance(last_value, (datetime,))
+                else str(last_value)
+            )
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch last date value: {str(e)}")

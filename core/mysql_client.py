@@ -1,6 +1,7 @@
 import mysql.connector
 from dotenv import load_dotenv
 import os
+from typing import Any, Dict, List
 from mysql.connector import Error
 from .db_colums import pickup_delivery_columns, masterorder_columns,orderlineitems_columns,status_events_columns
 # from db_colums import pickup_delivery_columns, masterorder_columns,orderlineitems_columns,status_events_columns
@@ -67,14 +68,14 @@ class MysqlCatalog:
         Returns:
             Total number of rows in the table
         """
-        # query = f"SELECT COUNT(*) AS total FROM `{table_name}`"
-        query = f"SELECT COUNT(*) AS total FROM `{table_name}` WHERE oms_data_migration_status = 1"
+        query = f"SELECT COUNT(*) AS total FROM `{table_name}`"
+        # query = f"SELECT COUNT(*) AS total FROM `{table_name}` WHERE oms_data_migration_status = 1"
         self.cursor.execute(query)
         row = self.cursor.fetchone()
         return int(row["total"])
 
 
-    def get_describe(self, table_name: str):
+    def get_describe(self, table_name: str) -> List[Dict[str, Any]]:
         """Get table structure/schema description.
         
         Args:
@@ -109,6 +110,7 @@ class MysqlCatalog:
             table_name: Name of the table to query
             start: Starting offset
             end: Ending offset (exclusive)
+            stop_date: Upper bound datetime; only records with created_at before this value are included
             
         Returns:
             List of order records within the specified range, or empty list on error
@@ -139,6 +141,7 @@ class MysqlCatalog:
             table_name: Name of the table to query
             start: Starting offset
             end: Ending offset (exclusive)
+            stop_date: Upper bound datetime; only records with created_at before this value are included
             # where oms_data_migration_status = 1
         Returns:
             List of order records within the specified range, or empty list on error
@@ -178,9 +181,50 @@ class MysqlCatalog:
             List of order records, or empty list on error
         """
         try:
-            # columns = ", ".join(masterorder_columns)
+            columns = ", ".join(masterorder_columns)
             # columns = ", ".join(pickup_delivery_columns)
             # columns = ", ".join(status_events_columns)
+            # columns = ", ".join(orderlineitems_columns)
+
+            query = f"""
+                SELECT {columns}
+                FROM `{table_name}`
+                WHERE
+                    created_at >= %s
+                    AND created_at <= %s
+                ORDER BY order_id ASC
+            """
+
+            self.cursor.execute(
+                query,
+                (start_date, end_date)
+            )
+
+            return self.cursor.fetchall()
+
+        except Exception as e:
+            print(f"MySQL fetch error in get_master_order: {e}")
+            return []
+
+    def get_orderlineitems_date_range(
+            self,
+            table_name: str,
+            start_date: str,
+            end_date: str
+    ) -> list:
+        """
+        Retrieve master order records within a date range.
+
+        Args:
+            table_name: Name of the table to query
+            start_date: Start datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+            end_date: End datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+
+        Returns:
+            List of order records, or empty list on error
+        """
+        try:
+
             columns = ", ".join(orderlineitems_columns)
 
             query = f"""
@@ -210,7 +254,7 @@ class MysqlCatalog:
             table_name: Name of the table to query
             start: Starting offset
             end: Ending offset (exclusive)
-            
+            stop_date: Upper bound datetime; only records with created_at before this value are included
         Returns:
             List of order records within the specified range, or empty list on error
         """
@@ -219,8 +263,8 @@ class MysqlCatalog:
             query = f"""
                 SELECT {columns}
                 FROM `{table_name}`
-                where oms_data_migration_status = 1
-                    and invoice_date < %s
+                where 
+                    row_added_dt < %s
                 ORDER BY pickup_delivery_req_item_id ASC
                 LIMIT %s, %s
             """
@@ -249,8 +293,7 @@ class MysqlCatalog:
             query = f"""
                 SELECT {columns}
                 FROM `{table_name}`
-                WHERE oms_data_migration_status = 0
-                    and invoice_date < %s
+                WHERE row_added_dt < %s
                 ORDER BY pickup_delivery_req_item_id ASC
                 LIMIT %s, %s
             """
@@ -278,9 +321,15 @@ class MysqlCatalog:
             query = f"""
                 SELECT {columns}
                 FROM `{table_name}`
-                where oms_data_migration_status = 0
-                    and invoice_date < %s
-                ORDER BY status_event_id ASC
+                where row_added_dttm < %s
+                ORDER
+                 
+                 
+                 
+                 
+                 
+                 
+                 BY status_event_id ASC
                 LIMIT %s, %s
             """
             limit = end - start
@@ -396,7 +445,7 @@ class MysqlCatalog:
             table_name: Name of the table to query
             last_date: Starting datetime (records with created_at > this)
             current_date: Ending datetime boundary (records with created_at <= this)
-            limit: Maximum number of records to retrieve
+            # limit: Maximum number of records to retrieve
             
         Returns:
             List of order line item records created between last_date and current_date, or empty list on error
@@ -433,46 +482,19 @@ class MysqlCatalog:
 
 # if __name__ == "__main__":
 #     # Test code - run with: python -m core.mysql_client
-#     ss = MysqlCatalog()
-#     print("Testing get_pickup_delivery_items_w...")
-#     results = ss.get_pickup_delivery_items_w(table_name="pickup_delivery_items_w", start=0, end=10)
-#     print(results)
-#     print(f"Retrieved {len(results)} records")
-#     if results:
-#         print(f"First record has {len(results[0])} columns")
-#     ss.close()
+import pandas as pd
 
-# Other test examples (commented out):
-# from datetime import datetime
-#
+
+
+
+# table_name = "vehicles"
 # ss = MysqlCatalog()
-# last_date = datetime(2024, 12, 1,0,0,0)
-# current_date = datetime(2025, 12, 18,0,0,0)
-# results = ss.get_orderlineitems_incremental(
-#     table_name="orderlineitems",
-#     last_date=last_date,
-#     current_date=current_date
-#
-# )
-# print(f"Retrieved {len(results)} records between {last_date} and {current_date}")
-# if results:
-#     print("First record:")
-#     print(f"First record: {results[0]}")
-#     print("Last record:")
-#     print(f"Last record: {results[-1]}")
-# ss.close()
-
-# print("masterorders",ss.get_count(table_name="masterorders"))
-# print("pickup_delivery_items",ss.get_count(table_name="pickup_delivery_items"))
-# print("status_events",ss.get_count(table_name="status_events"))
-# print("orderlineitems",ss.get_count(table_name="orderlineitems"))
-# print("masterorders_w",ss.get_count(table_name="masterorders_w"))
-# print("pickup_delivery_items_w",ss.get_count(table_name="pickup_delivery_items_w"))
-# print("masterorders_view",ss.get_count(table_name="masterorders_view"))
-# print(ss.get_schema(table_name="pickup_delivery_items"))
+# print(table_name)
 # print("#"*100)
-# print(ss.get_schema(table_name="pickup_delivery_items_w"))
-
-
-# ss = MysqlCatalog()
-# print(ss.get_master_order_date_range(table_name="orderlineitems", start_date="2025-12-12 00:00:00", end_date="2025-12-23 23:59:59"))
+# print(ss.get_schema(table_name=table_name))
+# data = pd.DataFrame(ss.get_schema(table_name=table_name))
+# data.to_json(f"schema/{table_name}.json", orient="records", lines=True)
+# print("#"*100)
+# print(ss.get_count(table_name=table_name))
+# print("#"*100)
+# ss.close()

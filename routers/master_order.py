@@ -1,4 +1,4 @@
-from fastapi import APIRouter,Query,Body
+from fastapi import APIRouter,Query,Body,HTTPException
 import time
 from core.mysql_client import MysqlCatalog
 from .masterOrderUtility import *
@@ -16,11 +16,12 @@ router = APIRouter(prefix="", tags=["MasterOrder"])
 # insert-master-order-data
 #multithreading
 
-@router.post("/masterorder/insert-master-with-mysql")
-def multi_within_mysql(
+@router.post("/masterorder/insert-master-with-mysql-range")
+def multi_within_mysql_range(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
     chunk_size: int = Query(10000, description="Chunk size for multithreading"),
+    date_filter: str = Query("2025-12-23", description="Date for MySQL data fetch"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "masterorders"
@@ -40,10 +41,9 @@ def multi_within_mysql(
     try:
         start_time = time.time()
         # rows = mysql_creds.get_master_order(dbname, start_range, end_range,"2025-12-12")
-        rows = mysql_creds.get_master_order(dbname, start_range, end_range,"2025-12-23")
+        rows = mysql_creds.get_master_order(dbname, start_range, end_range,date_filter)
 
-        print("mysql fetch time", time.time() - start_time)
-
+        logger.debug(f"MySQL fetch completed in {time.time() - start_time:.2f}s")
         if not rows:
             logger.warning("No rows found for given range")
             raise HTTPException(status_code=400, detail="No data found in the given range.")
@@ -60,23 +60,14 @@ def multi_within_mysql(
     except Exception as e:
         logger.exception("Row cleaning failed")
         raise HTTPException(status_code=500, detail=f"Row cleaning error: {e}")
-    # -------------------------------------------------
-    # Step 2: Infer Iceberg + Arrow Schema
-    # -------------------------------------------------
+
 
     iceberg_schema, arrow_schema = masterorder_schema(rows[0])
     
 
-    # print("iceberg_schema",iceberg_schema)
-    # print("arrow_schema",arrow_schema)
-
-    # -------------------------------------------------
-    # Step 3: Convert Rows to Arrow Tables (Multithreaded)
-    # -------------------------------------------------
     arrow_start = time.time()
     chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
 
-    # print("chunks",chunks)
     arrow_tables = []
     failed_chunks = []
     logger.info(f"Arrow conversion started | chunks={len(chunks)}")
@@ -97,7 +88,7 @@ def multi_within_mysql(
                         "chunk_data": chunks[idx],
                         "error": str(e)
                     })
-                    raise HTTPException(status_code=500, detail=f"Arrow chunk conversion failed: {e}")
+                    # raise HTTPException(status_code=500, detail=f"Arrow chunk conversion failed: {e}")
     except Exception as e:
         logger.exception("Arrow conversion failed")
         raise HTTPException(status_code=500, detail=f"Arrow conversion error: {e}")
@@ -138,10 +129,6 @@ def multi_within_mysql(
                 "error_table_result": error_save_result
             }
         )
-
-    # -------------------------------------------------
-    # Step 4: Load Iceberg Table
-    # -------------------------------------------------
 
     try:
         catalog = get_catalog_client()
@@ -206,11 +193,13 @@ def multi_within_mysql(
         logger.info(f"Saved {len(failed_records)} failed records from append errors to error table")
     append_end = time.time()
     total_end = time.time()
-    # -------------------------------------------------
-    # Step 6: Return Response
-    # -------------------------------------------------
-    successful_rows = len(rows) - len([r for fc in failed_chunks for r in fc.get("chunk_data", [])]) - len(
-        [r for fb in failed_batches for r in fb.get("batch_data", [])])
+
+    failed_chunks_count = sum(len(fc.get("chunk_data", [])) for fc in failed_chunks)
+    failed_batches_count = sum(len(fb.get("batch_data", [])) for fb in failed_batches)
+    successful_rows = len(rows) - failed_chunks_count - failed_batches_count
+
+    # successful_rows = len(rows) - len([r for fc in failed_chunks for r in fc.get("chunk_data", [])]) - len(
+    #     [r for fb in failed_batches for r in fb.get("batch_data", [])])
 
     logger.info(
         f"END ingestion | total_rows={len(rows)} successful={successful_rows} "

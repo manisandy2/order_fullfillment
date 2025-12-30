@@ -1,0 +1,16 @@
+{"name":"time_sorted_id","type":"varchar(50)","nullable":false,"key":"MUL","default":null,"extra":""}
+{"name":"code","type":"varchar(100)","nullable":false,"key":"PRI","default":null,"extra":""}
+{"name":"name","type":"varchar(100)","nullable":true,"key":"MUL","default":null,"extra":""}
+{"name":"permissions","type":"JSON","nullable":false,"key":"","default":null,"extra":""}
+{"name":"isEditable","type":"tinyint(1)","nullable":true,"key":"MUL","default":"1","extra":""}
+{"name":"isActive","type":"tinyint(1)","nullable":true,"key":"MUL","default":"1","extra":""}
+{"name":"created_on","type":"timestamp","nullable":false,"key":"","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"updated_on","type":"timestamp","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_at","type":"timestamp","nullable":false,"key":"MUL","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"updated_at","type":"timestamp","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_by","type":"varchar(200)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"updated_by","type":"varchar(200)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"createdAt","type":"timestamp","nullable":false,"key":"","default":null,"extra":""}
+{"name":"updatedAt","type":"timestamp","nullable":false,"key":"","default":null,"extra":""}
+{"name":"is_multi_branch_role","type":"tinyint(1)","nullable":true,"key":"","default":"0","extra":""}
+{"name":"role_type","type":"varchar(100)","nullable":true,"key":"","default":null,"extra":""}

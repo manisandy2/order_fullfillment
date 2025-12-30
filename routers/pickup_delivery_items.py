@@ -9,6 +9,7 @@ from .insert_data import process_chunk
 from core.catalog_client import get_catalog_client
 from pyiceberg.catalog import NoSuchTableError
 from core.logger import get_logger
+from .table_utility import TABLE_LIST
 
 logger = get_logger("Pick up Delivery Items-api")
 
@@ -17,6 +18,14 @@ router = APIRouter(prefix="", tags=["Pick up Delivery Items"])
 # multithreading
 @router.post("/pickup-delivery-items/insert-multi-with-mysql")
 def multi_within_mysql(
+    # namespace: str = Query(..., example="order_fulfillment"),
+    # table_name: Annotated[
+    #         str,
+    #         Query(
+    #             description="Select Iceberg table",
+    #             enum=TABLE_LIST
+    #         )
+    #     ] = "masterorders",
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
     chunk_size: int = Query(10000, description="Chunk size for multithreading"),
@@ -31,10 +40,6 @@ def multi_within_mysql(
     )
 
     mysql_creds = MysqlCatalog()
-
-    # -------------------------------------------------
-    # Step 1: Fetch and Convert MySQL Data
-    # -------------------------------------------------
 
     try:
         mysql_start = time.time()
@@ -62,9 +67,6 @@ def multi_within_mysql(
     # Step 2: Infer Iceberg + Arrow Schema
     # -------------------------------------------------
     iceberg_schema, arrow_schema = pickup_delivery_items_schema(rows[0])
-    
-    # print("iceberg_schema",iceberg_schema)
-    # print("arrow_schema",arrow_schema)
 
     # -------------------------------------------------
     # Step 3: Convert Rows to Arrow Tables (Multithreaded)
@@ -243,12 +245,20 @@ def multi_within_mysql(
 
 @router.post("/pickup-delivery-items-date-range/insert-multi-with-mysql")
 def multi_within_mysql_date_range(
+        namespace: str = Query(..., example="order_fulfillment"),
+        table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
         start_date: str = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
         end_date: str = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
-    namespace, table_name = "order_fulfillment", "pickup_delivery_items"
+    # namespace, table_name = "order_fulfillment", "pickup_delivery_items"
     dbname = "pickup_delivery_items"
 
     logger.info(

@@ -29,7 +29,7 @@ def validate_namespace(namespace: str) -> None:
 
 @router.get("/table/list")
 def get_tables(
-    namespace: str = Query(..., description="Namespace to list tables from"),
+    namespace: str = Query(..., example="order_fulfillment"),
 ):
     """
     List all tables in a given namespace
@@ -263,7 +263,7 @@ def create(
     # Step 2: Define partition spec
     transaction_partition_spec = PartitionSpec(
         PartitionField(
-            source_id=Pickup_delivery_items_schema.find_field("invoice_date").field_id,
+            source_id=Pickup_delivery_items_schema.find_field("row_added_dt").field_id,
             field_id=2001,
             transform=YearTransform(),
             name="year",
@@ -297,7 +297,7 @@ def create(
                 # "write.sort.order": "month(Bill_Date__c) ASC, customerId,customer_mobile__c",
                 # "write.sort.order": "customerId,customer_mobile__c",
                 # "write.sort.order": "year ASC, order_id ASC",
-                "write.sort.order": "year ASC, sale_order_id ASC, invoice_no ASC, invoice_date ASC",
+                "write.sort.order": "row_added_dt ASC",
                 "write.target-file-size-bytes": "268435456"
             },
         )
@@ -309,7 +309,7 @@ def create(
             "status": "created",
             "table": table_identifier,
             "schema_field_count": len(Pickup_delivery_items_schema.fields),
-            "partition_by": "year(invoice_date)"
+            "partition_by": "year(pickup_delivery_items_w)"
         }
 
     except TableAlreadyExistsError:
@@ -351,7 +351,7 @@ def create(
     # Step 2: Define partition spec
     transaction_partition_spec = PartitionSpec(
         PartitionField(
-            source_id=Pickup_delivery_items_schema.find_field("invoice_date").field_id,
+            source_id=Pickup_delivery_items_schema.find_field("row_added_dt").field_id,
             field_id=2001,
             transform=YearTransform(),
             name="year",
@@ -385,7 +385,7 @@ def create(
                 # "write.sort.order": "month(Bill_Date__c) ASC, customerId,customer_mobile__c",
                 # "write.sort.order": "customerId,customer_mobile__c",
                 # "write.sort.order": "year ASC, order_id ASC",
-                "write.sort.order": "year ASC, sale_order_id ASC, invoice_no ASC, invoice_date ASC",
+                "write.sort.order": "row_added_dt ASC",
                 "write.target-file-size-bytes": "268435456"
             },
         )
@@ -397,7 +397,7 @@ def create(
             "status": "created",
             "table": table_identifier,
             "schema_field_count": len(Pickup_delivery_items_schema.fields),
-            "partition_by": "year(invoice_date)"
+            "partition_by": "year(pickup_delivery_items_w)"
         }
 
     except TableAlreadyExistsError:
@@ -439,7 +439,7 @@ def create(
     # Step 2: Define partition spec
     transaction_partition_spec = PartitionSpec(
         PartitionField(
-            source_id=status_ff_schema.find_field("invoice_date").field_id,
+            source_id=status_ff_schema.find_field("row_added_dttm").field_id,
             field_id=2001,
             transform=YearTransform(),
             name="year",
@@ -473,7 +473,7 @@ def create(
                 # "write.sort.order": "month(Bill_Date__c) ASC, customerId,customer_mobile__c",
                 # "write.sort.order": "customerId,customer_mobile__c",
                 # "write.sort.order": "year ASC, order_id ASC",
-                "write.sort.order": "invoice_date ASC",
+                "write.sort.order": "row_added_dttm ASC",
                 "write.target-file-size-bytes": "268435456"
             },
         )
@@ -485,7 +485,7 @@ def create(
             "status": "created",
             "table": table_identifier,
             "schema_field_count": len(status_ff_schema.fields),
-            "partition_by": "year(invoice_date)"
+            "partition_by": "year(row_added_dttm)"
         }
 
     except TableAlreadyExistsError:

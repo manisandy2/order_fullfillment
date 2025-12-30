@@ -1,0 +1,16 @@
+{"name":"picklist_id","type":"varchar(128)","nullable":false,"key":"MUL","default":null,"extra":""}
+{"name":"id","type":"varchar(50)","nullable":false,"key":"PRI","default":"","extra":""}
+{"name":"allocate_picker_by","type":"enum('ZONE_MAPPING','DOCKING_AREA','GROUP','INDIVIDUAL')","nullable":true,"key":"","default":null,"extra":""}
+{"name":"branch_code","type":"varchar(32)","nullable":true,"key":"MUL","default":null,"extra":""}
+{"name":"items","type":"JSON","nullable":false,"key":"","default":null,"extra":""}
+{"name":"pickers","type":"JSON","nullable":false,"key":"","default":null,"extra":""}
+{"name":"items_total","type":"int(11)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"pickers_total","type":"int(11)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"ispickup_active","type":"tinyint(1)","nullable":false,"key":"MUL","default":"0","extra":""}
+{"name":"picklist_status","type":"varchar(32)","nullable":false,"key":"MUL","default":"PENDING","extra":""}
+{"name":"created_on","type":"timestamp","nullable":false,"key":"","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"updated_on","type":"timestamp","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_by","type":"varchar(64)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"updated_by","type":"varchar(64)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_at","type":"timestamp","nullable":false,"key":"MUL","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"updated_at","type":"timestamp","nullable":true,"key":"","default":null,"extra":""}

@@ -1,5 +1,3 @@
-
-
 pickup_delivery_columns = [
     "pickup_delivery_req_item_id",
     "pickup_delivery_req_id",

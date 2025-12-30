@@ -1,0 +1,11 @@
+{"name":"time_sorted_id","type":"varchar(50)","nullable":false,"key":"MUL","default":null,"extra":""}
+{"name":"manifest_id","type":"varchar(255)","nullable":false,"key":"PRI","default":null,"extra":""}
+{"name":"manifest_type","type":"varchar(50)","nullable":true,"key":"MUL","default":null,"extra":""}
+{"name":"shipment_id","type":"varchar(255)","nullable":false,"key":"MUL","default":null,"extra":""}
+{"name":"items_total","type":"int(11)","nullable":false,"key":"","default":null,"extra":""}
+{"name":"created_by","type":"varchar(255)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"updated_by","type":"varchar(255)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"createdAt","type":"timestamp","nullable":false,"key":"","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"updatedAt","type":"timestamp","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_at","type":"timestamp","nullable":false,"key":"MUL","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"updated_at","type":"timestamp","nullable":true,"key":"","default":null,"extra":""}

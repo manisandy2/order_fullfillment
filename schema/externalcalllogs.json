@@ -1,0 +1,7 @@
+{"name":"id","type":"varchar(100)","nullable":false,"key":"UNI","default":null,"extra":""}
+{"name":"ext_log_id","type":"varchar(100)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"short_code","type":"varchar(100)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"invoice_no","type":"varchar(100)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"res_obj","type":"JSON","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_at","type":"timestamp","nullable":true,"key":"MUL","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"created_by","type":"varchar(100)","nullable":true,"key":"","default":null,"extra":""}

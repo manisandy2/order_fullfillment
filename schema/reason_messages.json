@@ -1,0 +1,7 @@
+{"name":"id","type":"int(11)","nullable":false,"key":"PRI","default":null,"extra":""}
+{"name":"time_sorted_id","type":"varchar(50)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"status","type":"varchar(50)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"channel","type":"varchar(50)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"type","type":"varchar(50)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"msg","type":"JSON","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_at","type":"timestamp","nullable":false,"key":"MUL","default":null,"extra":""}

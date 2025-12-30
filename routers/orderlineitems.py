@@ -268,7 +268,7 @@ def multi_within_mysql_date_range(
 
     try:
         start_time = time.time()
-        rows = mysql_creds.get_master_order_date_range(dbname, start_date, end_date)
+        rows = mysql_creds.get_orderlineitems_date_range(dbname, start_date, end_date)
         # print(rows)
         print("mysql fetch time", time.time() - start_time)
 

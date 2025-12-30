@@ -1,0 +1,8 @@
+{"name":"id","type":"varchar(100)","nullable":false,"key":"PRI","default":null,"extra":""}
+{"name":"invoice_code","type":"varchar(50)","nullable":false,"key":"","default":null,"extra":""}
+{"name":"invoice_branch","type":"varchar(50)","nullable":false,"key":"","default":null,"extra":""}
+{"name":"invoice_no","type":"int(11)","nullable":false,"key":"","default":null,"extra":""}
+{"name":"invoice_year","type":"varchar(50)","nullable":false,"key":"","default":null,"extra":""}
+{"name":"order_type","type":"varchar(50)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_at","type":"timestamp","nullable":false,"key":"","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"updated_at","type":"timestamp","nullable":false,"key":"","default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}

@@ -1,0 +1,11 @@
+{"name":"time_sorted_id","type":"varchar(50)","nullable":false,"key":"","default":null,"extra":""}
+{"name":"id","type":"bigint(11)","nullable":false,"key":"PRI","default":null,"extra":"auto_increment"}
+{"name":"order_type","type":"varchar(255)","nullable":true,"key":"MUL","default":null,"extra":""}
+{"name":"upload_url","type":"varchar(255)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"upload_filename","type":"varchar(255)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"additional_data","type":"JSON","nullable":true,"key":"","default":null,"extra":""}
+{"name":"logged_in","type":"varchar(255)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_at","type":"timestamp","nullable":false,"key":"MUL","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"updated_at","type":"timestamp","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_by","type":"varchar(255)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"updated_by","type":"varchar(255)","nullable":true,"key":"","default":null,"extra":""}

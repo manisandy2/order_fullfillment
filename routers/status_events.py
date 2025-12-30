@@ -40,7 +40,7 @@ def multi_within_mysql(
 
     try:
         start_time = time.time()
-        rows = mysql_creds.get_status_events(dbname, start_range, end_range,"2025-12-12")
+        rows = mysql_creds.get_status_events(dbname, start_range, end_range,"2025-12-23")
 
         print("mysql fetch time", time.time() - start_time)
 
