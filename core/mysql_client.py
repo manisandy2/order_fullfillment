@@ -102,6 +102,35 @@ class MysqlCatalog:
         query = f"SELECT * FROM `{table_name}` LIMIT %s, %s"
         self.cursor.execute(query, (start, end - start))
         return self.cursor.fetchall()
+
+    def get_master_order(self, table_name: str, start: int, end: int, stop_date :str) -> list:
+        """Retrieve a range of order records with specific columns.
+        
+        Args:
+            table_name: Name of the table to query
+            start: Starting offset
+            end: Ending offset (exclusive)
+            stop_date: Upper bound datetime; only records with created_at before this value are included
+            # where oms_data_migration_status = 1
+        Returns:
+            List of order records within the specified range, or empty list on error
+        """
+        try:
+            columns = ", ".join(masterorder_columns)
+            query = f"""
+                SELECT {columns}
+                FROM `{table_name}`
+                where created_at < %s
+                ORDER BY order_id ASC
+                LIMIT %s, %s
+            """
+            limit = end - start
+
+            self.cursor.execute(query, (stop_date, start ,limit))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"MySQL fetch error in master_order: {e}")
+            return []
     
     def get_master_order_w(self, table_name: str, start: int, end: int, stop_date :str) -> list:
         """Retrieve a range of order records with specific columns.
@@ -134,34 +163,7 @@ class MysqlCatalog:
             print(f"MySQL fetch error in master_order_w: {e}")
             return []
     
-    def get_master_order(self, table_name: str, start: int, end: int, stop_date :str) -> list:
-        """Retrieve a range of order records with specific columns.
-        
-        Args:
-            table_name: Name of the table to query
-            start: Starting offset
-            end: Ending offset (exclusive)
-            stop_date: Upper bound datetime; only records with created_at before this value are included
-            # where oms_data_migration_status = 1
-        Returns:
-            List of order records within the specified range, or empty list on error
-        """
-        try:
-            columns = ", ".join(masterorder_columns)
-            query = f"""
-                SELECT {columns}
-                FROM `{table_name}`
-                where created_at < %s
-                ORDER BY order_id ASC
-                LIMIT %s, %s
-            """
-            limit = end - start
-
-            self.cursor.execute(query, (stop_date, start ,limit))
-            return self.cursor.fetchall()
-        except Exception as e:
-            print(f"MySQL fetch error in master_order: {e}")
-            return []
+    
 
     def get_master_order_date_range(
             self,
@@ -182,9 +184,7 @@ class MysqlCatalog:
         """
         try:
             columns = ", ".join(masterorder_columns)
-            # columns = ", ".join(pickup_delivery_columns)
-            # columns = ", ".join(status_events_columns)
-            # columns = ", ".join(orderlineitems_columns)
+
 
             query = f"""
                 SELECT {columns}
@@ -193,6 +193,133 @@ class MysqlCatalog:
                     created_at >= %s
                     AND created_at <= %s
                 ORDER BY order_id ASC
+            """
+
+            self.cursor.execute(
+                query,
+                (start_date, end_date)
+            )
+
+            return self.cursor.fetchall()
+
+        except Exception as e:
+            print(f"MySQL fetch error in get_master_order: {e}")
+            return []
+
+    def get_master_w_order_date_range(
+            self,
+            table_name: str,
+            start_date: str,
+            end_date: str
+    ) -> list:
+        """
+        Retrieve master order records within a date range.
+
+        Args:
+            table_name: Name of the table to query
+            start_date: Start datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+            end_date: End datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+
+        Returns:
+            List of order records, or empty list on error
+        """
+        try:
+            columns = ", ".join(masterorder_columns)
+
+
+            query = f"""
+                SELECT {columns}
+                FROM `{table_name}`
+                WHERE
+                    created_at >= %s
+                    AND created_at <= %s
+                ORDER BY order_id ASC
+            """
+
+            self.cursor.execute(
+                query,
+                (start_date, end_date)
+            )
+
+            return self.cursor.fetchall()
+
+        except Exception as e:
+            print(f"MySQL fetch error in get_master_order: {e}")
+            return []
+
+    def get_pickup_delivery_items_date_range(
+            self,
+            table_name: str,
+            start_date: str,
+            end_date: str
+    ) -> list:
+        """
+        Retrieve master order records within a date range.
+
+        Args:
+            table_name: Name of the table to query
+            start_date: Start datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+            end_date: End datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+
+        Returns:
+            List of order records, or empty list on error
+        """
+        try:
+            # columns = ", ".join(masterorder_columns)
+            columns = ", ".join(pickup_delivery_columns)
+            # columns = ", ".join(status_events_columns)
+            # columns = ", ".join(orderlineitems_columns)
+
+            query = f"""
+                SELECT {columns}
+                FROM `{table_name}`
+                WHERE
+                    row_added_dt >= %s
+                    AND row_added_dt <= %s
+                ORDER BY pickup_delivery_req_item_id ASC
+            """
+
+            self.cursor.execute(
+                query,
+                (start_date, end_date)
+            )
+
+            return self.cursor.fetchall()
+
+        except Exception as e:
+            print(f"MySQL fetch error in get_master_order: {e}")
+            return []
+
+    def get_pickup_delivery_items_w_date_range(
+            self,
+            table_name: str,
+            start_date: str,
+            end_date: str
+    ) -> list:
+        """
+        Retrieve master order records within a date range.
+
+        Args:
+            table_name: Name of the table to query
+            start_date: Start datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+            end_date: End datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+
+        Returns:
+            List of order records, or empty list on error
+        """
+        try:
+            # columns = ", ".join(masterorder_columns)
+            columns = ", ".join(pickup_delivery_columns)
+            # columns = ", ".join(status_events_columns)
+            # columns = ", ".join(orderlineitems_columns)
+
+            query = f"""
+                SELECT {columns}
+                FROM `{table_name}`
+                WHERE
+                    row_added_dt >= %s
+                    AND row_added_dt <= %s
+                ORDER BY pickup_delivery_req_item_id ASC
             """
 
             self.cursor.execute(
@@ -234,6 +361,47 @@ class MysqlCatalog:
                     created_at >= %s
                     AND created_at <= %s
                 ORDER BY line_item_id ASC
+            """
+
+            self.cursor.execute(
+                query,
+                (start_date, end_date)
+            )
+
+            return self.cursor.fetchall()
+
+        except Exception as e:
+            print(f"MySQL fetch error in get_master_order: {e}")
+            return []
+
+    def get_status_event_date_range(
+            self,
+            table_name: str,
+            start_date: str,
+            end_date: str
+    ) -> list:
+        """
+        Retrieve master order records within a date range.
+
+        Args:
+            table_name: Name of the table to query
+            start_date: Start datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+            end_date: End datetime (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+
+        Returns:
+            List of order records, or empty list on error
+        """
+        try:
+            columns = ", ".join(status_events_columns)
+
+
+            query = f"""
+                SELECT {columns}
+                FROM `{table_name}`
+                WHERE
+                    row_added_dttm >= %s
+                    AND row_added_dttm <= %s
+                ORDER BY status_event_id ASC
             """
 
             self.cursor.execute(

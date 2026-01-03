@@ -13,6 +13,8 @@ from pyiceberg.expressions import AlwaysTrue
 from .table_utility import TABLE_LIST
 import datetime
 from datetime import datetime
+import logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="", tags=["filters"])
 
@@ -1600,6 +1602,215 @@ def delete_order_id(
     }
 
 
+@router.delete("/r2/masterorders/delete-by-date")
+def delete_by_date_range(
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: Annotated[
+        str,
+        Query(
+            description="Select Iceberg table",
+            enum=TABLE_LIST
+        )
+    ] = "masterorders",
+    start_date: str = Query(..., example="2025-01-01", description="Start date (inclusive) in ISO format"),
+    end_date: str = Query(..., example="2025-01-31", description="End date (exclusive) in ISO format"),
+    date_column: str = Query("created_at", example="created_at", description="Date column to filter on"),
+    dry_run: bool = Query(False, description="Preview deletion without committing")
+):
+    """
+    DELETE records from R2 Iceberg table based on date range.
+    
+    ⚠️ WARNING: This operation rewrites the entire table. Use with caution.
+    
+    - Date range is INCLUSIVE for start_date, EXCLUSIVE for end_date
+    - Supports dry_run mode to preview deletions
+    - Returns detailed metrics and timeline
+    
+    Example:
+    - start_date="2025-01-01", end_date="2025-02-01" 
+      → Deletes all records from Jan 1 to Jan 31 (entire January)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    start_time = time.perf_counter()
+    
+    # -------------------------------------------------
+    # 1. Parse & Validate Dates
+    # -------------------------------------------------
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid date format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS). Error: {str(e)}"
+        )
+    
+    if start_dt >= end_dt:
+        raise HTTPException(
+            status_code=400,
+            detail=f"start_date ({start_date}) must be earlier than end_date ({end_date})"
+        )
+    
+    # Prevent accidental deletion of large date ranges (> 1 year)
+    date_diff_days = (end_dt - start_dt).days
+    if date_diff_days > 365:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Date range too large ({date_diff_days} days). Maximum allowed: 365 days. "
+                   f"Please use smaller date ranges for safety."
+        )
+    
+    catalog = get_catalog_client()
+    table_id = f"{namespace}.{table_name}"
+    
+    # -------------------------------------------------
+    # 2. Load Table with Validation
+    # -------------------------------------------------
+    try:
+        table = catalog.load_table(table_id)
+    except NoSuchTableError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Table '{table_id}' not found"
+        )
+    except Exception as e:
+        logger.error(f"Failed to load table {table_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to load table. Check server logs."
+        )
+    
+    # -------------------------------------------------
+    # 3. Validate Date Column Exists
+    # -------------------------------------------------
+    schema = table.schema()
+    column_names = [f.name for f in schema.fields]
+    if date_column not in column_names:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Column '{date_column}' not found in table. Available columns: {column_names}"
+        )
+    
+    # -------------------------------------------------
+    # 4. Build Date Filter (Predicate Pushdown)
+    # -------------------------------------------------
+    date_filter = And(
+        GreaterThanOrEqual(date_column, start_dt),
+        LessThan(date_column, end_dt)
+    )
+    
+    # -------------------------------------------------
+    # 5. Count Rows to Delete (Preview)
+    # -------------------------------------------------
+    try:
+        # First, count how many rows match the date filter
+        rows_to_delete = table.scan(row_filter=date_filter).count()
+    except Exception as e:
+        logger.error(f"Failed to count rows for deletion in {table_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to count rows. Error: {str(e)}"
+        )
+    
+    if rows_to_delete == 0:
+        timeline = round(time.perf_counter() - start_time, 3)
+        return {
+            "status": "no_match",
+            "message": f"No records found between {start_date} and {end_date}",
+            "namespace": namespace,
+            "table": table_name,
+            "date_column": date_column,
+            "start_date": start_date,
+            "end_date": end_date,
+            "rows_to_delete": 0,
+            "timeline_seconds": timeline
+        }
+    
+    # -------------------------------------------------
+    # 6. Dry Run Check
+    # -------------------------------------------------
+    if dry_run:
+        timeline = round(time.perf_counter() - start_time, 3)
+        return {
+            "status": "dry_run",
+            "message": f"Preview only - {rows_to_delete} rows would be deleted",
+            "namespace": namespace,
+            "table": table_name,
+            "date_column": date_column,
+            "start_date": start_date,
+            "end_date": end_date,
+            "rows_that_would_be_deleted": rows_to_delete,
+            "date_range_days": date_diff_days,
+            "timeline_seconds": timeline
+        }
+    
+    # -------------------------------------------------
+    # 7. Perform Deletion (EXPENSIVE OPERATION)
+    # -------------------------------------------------
+    try:
+        # Read entire table (PERFORMANCE BOTTLENECK)
+        logger.info(f"Starting deletion of {rows_to_delete} rows from {table_id} "
+                   f"(date range: {start_date} to {end_date})")
+        
+        arrow_tbl = table.scan().to_arrow()
+        before_rows = arrow_tbl.num_rows
+        
+        # Build inverse filter (keep rows OUTSIDE the date range)
+        # We need to filter the Arrow table, not use Iceberg filter
+        date_col_data = arrow_tbl[date_column]
+        
+        # Convert dates to Arrow scalars for comparison
+        import pyarrow as pa
+        start_scalar = pa.scalar(start_dt)
+        end_scalar = pa.scalar(end_dt)
+        
+        # Keep rows where date < start_date OR date >= end_date
+        keep_mask = pc.or_(
+            pc.less(date_col_data, start_scalar),
+            pc.greater_equal(date_col_data, end_scalar)
+        )
+        
+        filtered_tbl = arrow_tbl.filter(keep_mask)
+        after_rows = filtered_tbl.num_rows
+        actual_deleted = before_rows - after_rows
+        
+        # Overwrite table (rewrites entire table)
+        table.overwrite(filtered_tbl)
+        
+        logger.info(
+            f"Successfully deleted {actual_deleted} rows from {table_id}. "
+            f"Date range: {start_date} to {end_date}, Column: {date_column}"
+        )
+        
+    except Exception as e:
+        logger.error(f"Delete operation failed for {table_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Delete operation failed. Data may be in inconsistent state. Error: {str(e)}"
+        )
+    
+    # -------------------------------------------------
+    # 8. Response
+    # -------------------------------------------------
+    timeline = round(time.perf_counter() - start_time, 3)
+    
+    return {
+        "status": "deleted",
+        "message": f"Successfully deleted {actual_deleted} rows",
+        "namespace": namespace,
+        "table": table_name,
+        "date_column": date_column,
+        "start_date": start_date,
+        "end_date": end_date,
+        "date_range_days": date_diff_days,
+        "rows_before": before_rows,
+        "rows_after": after_rows,
+        "rows_deleted": actual_deleted,
+        "timeline_seconds": timeline
+    }
+
 
 @router.get("/iceberg/last-date")
 def get_last_date_value(
@@ -1626,7 +1837,7 @@ def get_last_date_value(
         # Read only 1 row sorted DESC (no full scan)
         scan = (
             iceberg_table.scan(
-                row_filter=AlwaysTrue(),
+                # row_filter=AlwaysTrue(),
                 selected_fields=[column]
             )
             .to_arrow()
@@ -1660,3 +1871,108 @@ def get_last_date_value(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch last date value: {str(e)}")
+
+# @router.get("/iceberg/last-date")
+# def get_last_date_value(
+#     namespace: str = Query(..., example="order_fulfillment"),
+#     table: Annotated[
+#         str,
+#         Query(
+#             description="Select Iceberg table",
+#             enum=TABLE_LIST
+#         )
+#     ] = "masterorders",
+#     column: str = Query("created_at", example="created_at")
+# ):
+#     """
+#     Fetch the latest (MAX) date/timestamp/numeric value from an Iceberg table column.
+    
+#     Supports datetime, date, and numeric columns.
+#     Uses PyArrow compute for optimal performance.
+#     """
+#     start_time = time.perf_counter()
+    
+#     try:
+#         catalog = get_catalog_client()
+#         table_identifier = f"{namespace}.{table}"
+#         iceberg_table = catalog.load_table(table_identifier)
+        
+#         # -------------------------------------------------
+#         # 1. Validate Column Exists
+#         # -------------------------------------------------
+#         schema = iceberg_table.schema()
+#         if column not in schema.names:
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=f"Column '{column}' not found in table. Available columns: {schema.names}"
+#             )
+        
+#         # -------------------------------------------------
+#         # 2. Scan Only Required Column (Optimized)
+#         # -------------------------------------------------
+#         arrow_table = (
+#             iceberg_table.scan(
+#                 selected_fields=[column]
+#             )
+#             .to_arrow()
+#         )
+        
+#         if arrow_table.num_rows == 0:
+#             timeline = round(time.perf_counter() - start_time, 3)
+#             return {
+#                 "namespace": namespace,
+#                 "table": table,
+#                 "column": column,
+#                 "last_value": None,
+#                 "timeline_seconds": timeline
+#             }
+        
+#         # -------------------------------------------------
+#         # 3. Use PyArrow Compute for MAX (Faster than Pandas)
+#         # -------------------------------------------------
+#         column_data = arrow_table[column]
+#         max_value = pc.max(column_data).as_py()
+        
+#         # -------------------------------------------------
+#         # 4. Handle NULL/NaN Results
+#         # -------------------------------------------------
+#         if max_value is None or (isinstance(max_value, float) and pd.isna(max_value)):
+#             last_value_formatted = None
+#         elif isinstance(max_value, (datetime, pd.Timestamp)):
+#             last_value_formatted = max_value.isoformat()
+#         elif isinstance(max_value, date):
+#             last_value_formatted = max_value.isoformat()
+#         else:
+#             # Numeric or other types
+#             last_value_formatted = str(max_value)
+        
+#         timeline = round(time.perf_counter() - start_time, 3)
+        
+#         logger.info(
+#             f"Fetched max value from {table_identifier}.{column}: "
+#             f"{last_value_formatted} ({timeline}s)"
+#         )
+        
+#         return {
+#             "namespace": namespace,
+#             "table": table,
+#             "column": column,
+#             "last_value": last_value_formatted,
+#             "timeline_seconds": timeline
+#         }
+    
+#     except HTTPException:
+#         raise
+#     except NoSuchTableError:
+#         raise HTTPException(
+#             status_code=404,
+#             detail=f"Table '{namespace}.{table}' not found"
+#         )
+#     except Exception as e:
+#         logger.error(
+#             f"Failed to fetch last date value from {namespace}.{table}.{column}: {str(e)}"
+#         )
+#         raise HTTPException(
+#             status_code=500,
+#             detail="Failed to fetch last date value. Check server logs for details."
+#         )

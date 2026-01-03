@@ -113,8 +113,8 @@ from datetime import datetime, timedelta
 
 API_URL = "http://127.0.0.1:8000/masterorder-date-range/insert-master-with-mysql"
 
-START_DATE = "2025-12-23"
-END_DATE = "2025-12-28"
+START_DATE = "2025-12-24T07:08:00"
+END_DATE = "2026-01-01T23:59:59"
 
 CHUNK_SIZE = 10000
 MAX_RETRIES = 3

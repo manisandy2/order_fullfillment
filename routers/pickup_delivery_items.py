@@ -245,20 +245,20 @@ def multi_within_mysql(
 
 @router.post("/pickup-delivery-items-date-range/insert-multi-with-mysql")
 def multi_within_mysql_date_range(
-        namespace: str = Query(..., example="order_fulfillment"),
-        table_name: Annotated[
-            str,
-            Query(
-                description="Select Iceberg table",
-                enum=TABLE_LIST
-            )
-        ] = "masterorders",
+        # namespace: str = Query(..., example="order_fulfillment"),
+        # table_name: Annotated[
+        #     str,
+        #     Query(
+        #         description="Select Iceberg table",
+        #         enum=TABLE_LIST
+        #     )
+        # ] = "masterorders",
         start_date: str = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
         end_date: str = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
-    # namespace, table_name = "order_fulfillment", "pickup_delivery_items"
+    namespace, table_name = "order_fulfillment", "pickup_delivery_items"
     dbname = "pickup_delivery_items"
 
     logger.info(
@@ -274,7 +274,7 @@ def multi_within_mysql_date_range(
 
     try:
         mysql_start = time.time()
-        rows = mysql_creds.get_master_order_date_range(dbname, start_date, end_date)
+        rows = mysql_creds.get_pickup_delivery_items_date_range(dbname, start_date, end_date)
         print("mysql fetch time:", time.time() - mysql_start)
 
         if not rows:
