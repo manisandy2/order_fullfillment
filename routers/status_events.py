@@ -17,6 +17,7 @@ logger = get_logger("Status-Events-w-api")
 router = APIRouter(prefix="", tags=["Status Events"])
 # Status Events
 # multithreading
+
 @router.post("/status-events/insert-multi-with-mysql")
 def multi_within_mysql(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
@@ -242,11 +243,11 @@ def multi_within_mysql(
 
     return response
 
-
+#
 @router.post("/status-events-date-range/insert-multi-with-mysql")
 def multi_within_mysql_date_range(
-        start_date: str = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
-        end_date: str = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
+        start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
+        end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
@@ -264,7 +265,9 @@ def multi_within_mysql_date_range(
 
     try:
         start_time = time.time()
-        rows = mysql_creds.get_status_event_date_range(dbname, start_date, end_date)
+        start_dt = start_date.strftime("%Y-%m-%d %H:%M:%S")
+        end_dt = end_date.strftime("%Y-%m-%d %H:%M:%S")
+        rows = mysql_creds.get_status_event_date_range(dbname, start_dt, end_dt)
 
         print("mysql fetch time", time.time() - start_time)
 

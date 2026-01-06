@@ -299,3 +299,37 @@ status_events_columns = [
     "oms_data_migration_status" ,
     "updated_at_new" ,
 ]
+
+bluedart_zone_masters_columns = [
+    "id",
+    "cpincode",
+    "cpindesc",
+    "city",
+    "bdsc",
+    "state",
+    "carea",
+    "cecomzn",
+    "region",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+    "cscrcd",
+
+]
+courier_masters_columns = [
+    "code",
+    "name",
+    "type",
+    "isactive",
+    "image",
+    "description",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+    "isEditable",
+    "isApiIntegrated",
+    "branch_list",
+    "branch_code_list",
+]

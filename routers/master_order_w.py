@@ -17,7 +17,7 @@ router = APIRouter(prefix="", tags=["MasterOrder_w"])
 
 # insert-master-order-data
 # multithreading
-
+# mysql | range | chunk_size | iceberg | arrow | append
 @router.post("/masterorder-w/insert-master-order-data")
 def insert(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
@@ -242,12 +242,12 @@ def insert(
 
     return response
 
-
+# mysql | date_range | chunk_size | iceberg | arrow | append
 @router.post("/masterorder-w-date-range/insert-master-with-mysql")
 def multi_within_mysql_date_range(
 
-        start_date: str = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
-        end_date: str = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
+        start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
+        end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
@@ -277,8 +277,10 @@ def multi_within_mysql_date_range(
     # -------------------------------------------------
     try:
         start_time = time.time()
+        start_dt = start_date.strftime("%Y-%m-%d %H:%M:%S")
+        end_dt = end_date.strftime("%Y-%m-%d %H:%M:%S")
         # rows = mysql_creds.get_master_order(dbname, start_range, end_range,"2025-12-12")
-        rows = mysql_creds.get_master_w_order_date_range(dbname, start_date, end_date)
+        rows = mysql_creds.get_master_w_order_date_range(dbname, start_dt, end_dt)
 
         print("mysql fetch time", time.time() - start_time)
 

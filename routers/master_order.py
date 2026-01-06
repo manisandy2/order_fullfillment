@@ -13,11 +13,10 @@ logger = get_logger("masterorder-api")
 
 router = APIRouter(prefix="", tags=["MasterOrder"])
 
-# insert-master-order-data
-#multithreading
 
+# mysql | range | chunk_size | multithreading | arrow | append
 @router.post("/masterorder/insert-master-with-mysql-range")
-def multi_within_mysql_range(
+def masterorder_between_range(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
     chunk_size: int = Query(10000, description="Chunk size for multithreading"),
@@ -230,12 +229,11 @@ def multi_within_mysql_range(
 
     return response
 
-
+# mysql | date_range | chunk_size | iceberg | arrow | append
 @router.post("/masterorder-date-range/insert-master-with-mysql")
-def multi_within_mysql_date_range(
-
-        start_date: str = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
-        end_date: str = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
+def masterorder_between_date(
+        start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
+        end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
@@ -248,11 +246,6 @@ def multi_within_mysql_date_range(
             detail="start_date must be less than or equal to end_date"
         )
 
-    # logger.info(
-    #     f"START ingestion | table={namespace}.{table_name} "
-    #     f"range=({start_date},{end_date}) chunk_size={chunk_size}"
-    # )
-
     logger.info(
         f"START ingestion | table={namespace}.{table_name} "
         f"date_range=({start_date},{end_date}) chunk_size={chunk_size}"
@@ -260,13 +253,12 @@ def multi_within_mysql_date_range(
 
     mysql_creds = MysqlCatalog()
 
-    # -------------------------------------------------
-    # Step 1: Fetch and Convert MySQL Data
-    # -------------------------------------------------
     try:
         start_time = time.time()
+        start_dt = start_date.strftime("%Y-%m-%d %H:%M:%S")
+        end_dt = end_date.strftime("%Y-%m-%d %H:%M:%S")
         # rows = mysql_creds.get_master_order(dbname, start_range, end_range,"2025-12-12")
-        rows = mysql_creds.get_master_order_date_range(dbname, start_date, end_date)
+        rows = mysql_creds.get_master_order_date_range(dbname, start_dt, end_dt)
 
         print("mysql fetch time", time.time() - start_time)
 
@@ -466,9 +458,9 @@ def multi_within_mysql_date_range(
 
     return response
 
-
+# mysql | single_data | iceberg | arrow | append
 @router.post("/masterorder/insert-single-within-mysql")
-def insert_pickup_delivery_items(
+def masterorder_single(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
 ):
@@ -581,217 +573,9 @@ def insert_pickup_delivery_items(
         },
     }
 
-# with out mysql
-# @router.post("/masterorder/insert-without-mysql")
-# def insert_without_mysql(
-#     rows: list = Body(..., description="List of pickup-delivery item rows"),
-#     # rows: dict = Body(..., description="List of pickup-delivery item rows"),
-# ):
-#     total_start = time.time()
-#     namespace, table_name = "order_fulfillment", "masterorders"
-#
-#     # -------------------------------------------------
-#     # Step 1: Validate Input
-#     # -------------------------------------------------
-#     if not isinstance(rows, list) or len(rows) == 0:
-#         raise HTTPException(status_code=400, detail="Rows must be a non-empty list")
-#
-#     print(f"Received {len(rows)} rows")
-#
-#     # Print sample
-#     print("Sample Row:", rows[0])
-#
-#     # -------------------------------------------------
-#     # Step 2: Clean Rows
-#     # -------------------------------------------------
-#     clean_start = time.time()
-#     masterOrder_clean_rows(rows)
-#     clean_end = time.time()
-#     print(f"Row cleaning completed in {clean_end - clean_start:.2f} sec")
-#
-#     # -------------------------------------------------
-#     # Step 3: Infer Schema (Iceberg + Arrow)
-#     # -------------------------------------------------
-#     schema_start = time.time()
-#     iceberg_schema, arrow_schema = masterorder_schema(rows[0])
-#     schema_end = time.time()
-#
-#     print("Inferred Iceberg Schema:", iceberg_schema)
-#     print("Inferred Arrow Schema:", arrow_schema)
-#
-#     print(f"Schema inference completed in {schema_end - schema_start:.2f} sec")
-#
-#     # -------------------------------------------------
-#     # Step 4: Convert Full Rows to Arrow Table
-#     # -------------------------------------------------
-#     arrow_start = time.time()
-#     try:
-#         arrow_table = pa.Table.from_pylist(rows, schema=arrow_schema)
-#         print(f"Arrow table created with {arrow_table.num_rows} rows")
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Arrow conversion failed: {e}")
-#     arrow_end = time.time()
-#
-#     print(f"Arrow conversion completed in {arrow_end - arrow_start:.2f} sec")
-#
-#     # -------------------------------------------------
-#     # Step 5: Load Iceberg Table
-#     # -------------------------------------------------
-#     catalog_start = time.time()
-#     catalog = get_catalog_client()
-#     table_identifier = f"{namespace}.{table_name}"
-#
-#     try:
-#         tbl = catalog.load_table(table_identifier)
-#     except NoSuchTableError:
-#         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
-#
-#     catalog_end = time.time()
-#     print(f"Catalog load completed in {catalog_end - catalog_start:.2f} sec")
-#
-#     # -------------------------------------------------
-#     # Step 6: Append to Iceberg Table
-#     # -------------------------------------------------
-#     append_start = time.time()
-#     try:
-#         tbl.append(arrow_table)
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=500,
-#             detail={
-#                 "error_code": "ICEBERG_APPEND_FAILED",
-#                 "message": f"Data append failed for table {table_identifier}",
-#                 "exception": str(e),
-#             },
-#         )
-#     append_end = time.time()
-#
-#     print(f"Append completed in {append_end - append_start:.2f} sec")
-#
-#     total_end = time.time()
-#
-#     # -------------------------------------------------
-#     # Step 7: Final API Response
-#     # -------------------------------------------------
-#     return {
-#         "success": True,
-#         "message": "Data appended successfully",
-#         "rows_received": len(rows),
-#         "execution_times": {
-#             "clean_rows": round(clean_end - clean_start, 2),
-#             "schema_infer": round(schema_end - schema_start, 2),
-#             "arrow_convert": round(arrow_end - arrow_start, 2),
-#             "catalog_load": round(catalog_end - catalog_start, 2),
-#             "append": round(append_end - append_start, 2),
-#             "total_time": round(total_end - total_start, 2),
-#         },
-#     }
-
-# @router.post("/masterorder/insert-without-mysql")
-# def insert_without_mysql(
-#     row: dict = Body(..., description="Single pickup-delivery item row"),
-# ):
-#     total_start = time.time()
-#     namespace, table_name = "order_fulfillment", "masterorders"
-#     table_identifier = f"{namespace}.{table_name}"
-#
-#     # -------------------------------------------------
-#     # Step 1: Validate Input
-#     # -------------------------------------------------
-#     if not isinstance(row, dict):
-#         raise HTTPException(status_code=400, detail="Input must be a dictionary")
-#
-#     print("Received Row:", row)
-#
-#     # -------------------------------------------------
-#     # Step 2: Clean Row
-#     # -------------------------------------------------
-#     clean_start = time.time()
-#
-#     try:
-#         cleaned = masterOrder_clean_rows([row])     # pass as list internally
-#         if cleaned:
-#             row = cleaned[0]
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Row cleaning failed: {e}")
-#
-#     clean_end = time.time()
-#
-#     # -------------------------------------------------
-#     # Step 3: Infer Schema (Iceberg + Arrow)
-#     # -------------------------------------------------
-#     schema_start = time.time()
-#
-#     try:
-#         iceberg_schema, arrow_schema = masterorder_schema(row)
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Schema inference failed: {e}")
-#
-#     schema_end = time.time()
-#
-#     # -------------------------------------------------
-#     # Step 4: Convert to Arrow Table (single row)
-#     # -------------------------------------------------
-#     arrow_start = time.time()
-#
-#     try:
-#         arrow_table = pa.Table.from_pylist([row], schema=arrow_schema)
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Arrow conversion failed: {e}")
-#
-#     arrow_end = time.time()
-#
-#     # -------------------------------------------------
-#     # Step 5: Load Iceberg Table
-#     # -------------------------------------------------
-#     catalog_start = time.time()
-#     catalog = get_catalog_client()
-#
-#     try:
-#         tbl = catalog.load_table(table_identifier)
-#     except NoSuchTableError:
-#         raise HTTPException(status_code=404, detail=f"Table not found: {table_identifier}")
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Catalog load failed: {e}")
-#
-#     catalog_end = time.time()
-#
-#     # -------------------------------------------------
-#     # Step 6: Append to Iceberg Table
-#     # -------------------------------------------------
-#     append_start = time.time()
-#
-#     try:
-#         tbl.append(arrow_table)
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=500,
-#             detail={
-#                 "error_code": "ICEBERG_APPEND_FAILED",
-#                 "message": f"Append failed for table {table_identifier}",
-#                 "exception": str(e),
-#             },
-#         )
-#
-#     append_end = time.time()
-#
-#     total_end = time.time()
-#
-#     return {
-#         "success": True,
-#         "message": "1 row appended successfully",
-#         "execution_times": {
-#             "clean_rows": round(clean_end - clean_start, 2),
-#             "schema_infer": round(schema_end - schema_start, 2),
-#             "arrow_convert": round(arrow_end - arrow_start, 2),
-#             "catalog_load": round(catalog_end - catalog_start, 2),
-#             "append": round(append_end - append_start, 2),
-#             "total_time": round(total_end - total_start, 2),
-#         },
-#     }
-
+# without mysql | single data | iceberg | arrow | append
 @router.post("/masterorder/insert-without-mysql")
-def insert_without_mysql(
+def masterorder_single_without_mysql(
     row: dict = Body(..., description="Single pickup-delivery item row"),
 ):
 

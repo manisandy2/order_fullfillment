@@ -1,0 +1,6 @@
+{"name":"id","type":"varchar(50)","nullable":false,"key":"PRI","default":null,"extra":""}
+{"name":"operation_type","type":"varchar(50)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"affected_rows","type":"int(11)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"status","type":"varchar(10)","nullable":true,"key":"","default":null,"extra":""}
+{"name":"message","type":"text","nullable":true,"key":"","default":null,"extra":""}
+{"name":"created_at","type":"timestamp","nullable":true,"key":"","default":"CURRENT_TIMESTAMP","extra":""}

@@ -3,13 +3,15 @@ from core.catalog_client import get_catalog_client
 from pyiceberg.schema import Schema
 from pyiceberg.partitioning import PartitionSpec,PartitionField
 from pyiceberg.transforms import YearTransform
-from .Iceberg_schema import MasterSchema, Pickup_delivery_items, Status_event, OrderLineItems, OrderLineItems_test
+from .Iceberg_schema import *
 from pyiceberg.catalog import NoSuchNamespaceError,NamespaceAlreadyExistsError,TableAlreadyExistsError,NoSuchTableError
 from core.logger import get_logger
+from .table_utility import table_identifier
 import re
 
 logger = get_logger("table-api")
 router = APIRouter(prefix="", tags=["Tables"])
+
 
 
 def validate_namespace(namespace: str) -> None:
@@ -24,6 +26,88 @@ def validate_namespace(namespace: str) -> None:
         raise HTTPException(
             status_code=400,
             detail="Namespace must contain only alphanumeric characters and underscores"
+        )
+
+def _create_iceberg_table(
+    namespace: str,
+    table_name: str,
+    schema: Schema,
+    partition_spec: PartitionSpec,
+    sort_order: str,
+    identifier_field_ids: str = "1"
+):
+    """
+    Helper function to create an Iceberg table with standard configuration.
+    """
+    table_identifier = f"{namespace}.{table_name}"
+    logger.info(f"Creating table: {table_identifier}")
+
+    # Connect to catalog
+    catalog = get_catalog_client()
+
+    # Ensure namespace exists
+    try:
+        catalog.load_namespace_properties(namespace)
+    except NoSuchNamespaceError:
+        catalog.create_namespace(namespace)
+    except NamespaceAlreadyExistsError:
+        pass
+
+    # Create table
+    try:
+        properties = {
+            "format-version": "2",
+            "table-type": "MERGE_ON_READ",
+            "identifier-field-ids": identifier_field_ids,
+            "write.format.default": "parquet",
+            "write.parquet.compression-codec": "zstd",
+            "write.partition.path-style": "hierarchical",
+            "write.sort.order": sort_order,
+            "write.target-file-size-bytes": "268435456"
+        }
+        
+        catalog.create_table(
+            identifier=table_identifier,
+            schema=schema,
+            partition_spec=partition_spec,
+            properties=properties,
+        )
+        logger.info(f"Successfully created Iceberg table: {table_identifier}")
+
+        # Determine partition field name for the response
+        partition_desc = "unknown"
+        if partition_spec.fields:
+            # Assuming single partition field for now as per existing code
+            field_id = partition_spec.fields[0].source_id
+            field_name = schema.find_field(field_id).name
+            partition_desc = f"year({field_name})"
+
+        return {
+            "success": True,
+            "status": "created",
+            "table": table_identifier,
+            "schema_field_count": len(schema.fields),
+            "partition_by": partition_desc
+        }
+
+    except TableAlreadyExistsError:
+        logger.info(f"Table already exists: {table_identifier}")
+        return {
+            "success": True,
+            "status": "exists",
+            "table": table_identifier,
+            "message": "Table already exists (idempotent)"
+        }
+    except Exception as e:
+        logger.exception(f"Failed to create table {table_identifier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TABLE_CREATION_FAILED",
+                "message": f"Failed to create table '{table_identifier}'",
+                "details": str(e),
+                "table": table_identifier
+            }
         )
 
 
@@ -156,7 +240,8 @@ def create(
                 "details": str(e),
                 "table": table_identifier
             }
-        )
+     
+       )
 
 @router.post("/masterorders-w/create")
 def create(
@@ -684,6 +769,170 @@ def create(
             }
         )
 
+
+# orderlineitems
+@router.post("/bluedart_zone_masters/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "bluedart_zone_masters"
+    
+    bluedart_schema = Schema(fields=Bluedart_zone_masters)
+    
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=bluedart_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+    
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=bluedart_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/courier_masters/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "courier_masters"
+
+    courier_schema = Schema(fields=Courier_masters)
+    
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=courier_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+    
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=courier_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/drivers/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "drivers"
+    
+    drivers_schema = Schema(fields=Drivers)
+    
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=drivers_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+    
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=drivers_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/exchange_informations/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "exchange_informations"
+    
+    exchange_schema = Schema(fields=Exchange_informations)
+    
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+    
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_schema,
+        partition_spec=partition_spec,
+        sort_order="order_id ASC"
+    )
+
+@router.post("/exchange_masterorders_w/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "exchange_masterorders_w"
+    
+    exchange_mo_schema = Schema(fields=Exchange_masterorders_w)
+    
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+    
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="order_id ASC"
+    )
+
+@router.post("/exchange_masterorders/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "exchange_masterorders"
+    
+    exchange_mo_schema = Schema(fields=Exchange_masterorders)
+    
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+    
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="order_id ASC"
+    )
+
 @router.post("/table/rename")
 def rename_table(
     namespace: str = Query(..., description="Namespace containing the table"),
@@ -692,7 +941,7 @@ def rename_table(
 
 ):
 
-    logger.info(f"Renaming table from {old_identifier} to {new_identifier}")
+    logger.info(f"Renaming table from {old_table_name} to {new_table_name}")
     
     catalog = get_catalog_client()
     try:
@@ -780,3 +1029,56 @@ def delete_table(
                 "table": full_table_name
             }
         )
+@router.post("/installation_services/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "installation_services"
+    
+    is_schema = Schema(fields=Installation_services)
+    
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=is_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+    
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=is_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/intransit_manifests/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "intransit_manifests"
+    
+    im_schema = Schema(fields=Intransit_manifests)
+    
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=im_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+    
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=im_schema,
+        partition_spec=partition_spec,
+        sort_order="t_manifest_id ASC"
+    )

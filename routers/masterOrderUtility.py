@@ -22,8 +22,8 @@ def masterorder_schema(record: dict):
     "longitude": (FloatType(), pa.float64(), False),
 
     # Date fields
-    "invoice_date": (DateType(), pa.timestamp("ms"), False),
-    "updated_at_new": (DateType(), pa.timestamp("ms"), False),
+    # "invoice_date": (DateType(), pa.timestamp("ms"), False),
+    # "updated_at_new": (DateType(), pa.timestamp("ms"), False),
 
     # Timestamp fields
     "invoice_date": (TimestampType(), pa.timestamp('ms'), False),
@@ -66,6 +66,7 @@ def masterorder_schema(record: dict):
     "multi_invoice": (StringType(), pa.string(), False),
     }
 
+    
     for idx, (name, value) in enumerate(record.items(), start=1):
         if name in field_overrides:
             ice_type, arrow_type, required = field_overrides[name]

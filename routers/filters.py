@@ -568,7 +568,7 @@ def delete_between_date_range(
     from pyiceberg.exceptions import NoSuchTableError
 
     start_time = time.perf_counter()
-    table_identifier = "order_fulfillment.masterorders"
+    table_identifier = "order_fulfillment.masterorders_w"
 
     # ------------------ DATE PARSE ------------------
     try:
@@ -1562,13 +1562,15 @@ def delete_order_id(
     before_rows = arrow_tbl.num_rows
 
     # 3️⃣ Convert order_ids → PyArrow array (IMPORTANT)
-    col_type = arrow_tbl.schema.field("order_id").type
+    # col_type = arrow_tbl.schema.field("order_id").type
+    col_type = arrow_tbl.schema.field("line_item_id").type
     order_ids_array = pa.array(order_ids, type=col_type)
 
     # 4️⃣ DELETE = filter out order_ids
     filtered_tbl = arrow_tbl.filter(
         pc.invert(
-            pc.is_in(arrow_tbl["order_id"], value_set=order_ids_array)
+            # pc.is_in(arrow_tbl["order_id"], value_set=order_ids_array)
+            pc.is_in(arrow_tbl["line_item_id"], value_set=order_ids_array)
         )
     )
     after_rows = filtered_tbl.num_rows
@@ -1620,11 +1622,11 @@ def delete_by_date_range(
     """
     DELETE records from R2 Iceberg table based on date range.
     
-    ⚠️ WARNING: This operation rewrites the entire table. Use with caution.
+    ⚠️ WARNING: This operation performs a hard delete on the table.
     
     - Date range is INCLUSIVE for start_date, EXCLUSIVE for end_date
+    - Uses native Iceberg delete (Copy-On-Write or Merge-On-Read depending on table config)
     - Supports dry_run mode to preview deletions
-    - Returns detailed metrics and timeline
     
     Example:
     - start_date="2025-01-01", end_date="2025-02-01" 
@@ -1666,7 +1668,7 @@ def delete_by_date_range(
     table_id = f"{namespace}.{table_name}"
     
     # -------------------------------------------------
-    # 2. Load Table with Validation
+    # 2. Load Table
     # -------------------------------------------------
     try:
         table = catalog.load_table(table_id)
@@ -1694,19 +1696,20 @@ def delete_by_date_range(
         )
     
     # -------------------------------------------------
-    # 4. Build Date Filter (Predicate Pushdown)
+    # 4. Build Delete Filter
     # -------------------------------------------------
-    date_filter = And(
-        GreaterThanOrEqual(date_column, start_dt),
-        LessThan(date_column, end_dt)
+    # We want to DELETE rows where: start_date <= date < end_date
+    delete_filter = And(
+        GreaterThanOrEqual(date_column, start_dt.isoformat()),
+        LessThan(date_column, end_dt.isoformat())
     )
     
     # -------------------------------------------------
-    # 5. Count Rows to Delete (Preview)
+    # 5. Count Rows (Preview)
     # -------------------------------------------------
     try:
-        # First, count how many rows match the date filter
-        rows_to_delete = table.scan(row_filter=date_filter).count()
+        # Check how many rows match the filter
+        rows_to_delete = table.scan(row_filter=delete_filter).count()
     except Exception as e:
         logger.error(f"Failed to count rows for deletion in {table_id}: {str(e)}")
         raise HTTPException(
@@ -1714,28 +1717,14 @@ def delete_by_date_range(
             detail=f"Failed to count rows. Error: {str(e)}"
         )
     
-    if rows_to_delete == 0:
+    if dry_run or rows_to_delete == 0:
         timeline = round(time.perf_counter() - start_time, 3)
+        status = "dry_run" if dry_run else "no_match"
+        msg = f"Preview only - {rows_to_delete} rows match" if dry_run else "No matching records found"
+        
         return {
-            "status": "no_match",
-            "message": f"No records found between {start_date} and {end_date}",
-            "namespace": namespace,
-            "table": table_name,
-            "date_column": date_column,
-            "start_date": start_date,
-            "end_date": end_date,
-            "rows_to_delete": 0,
-            "timeline_seconds": timeline
-        }
-    
-    # -------------------------------------------------
-    # 6. Dry Run Check
-    # -------------------------------------------------
-    if dry_run:
-        timeline = round(time.perf_counter() - start_time, 3)
-        return {
-            "status": "dry_run",
-            "message": f"Preview only - {rows_to_delete} rows would be deleted",
+            "status": status,
+            "message": msg,
             "namespace": namespace,
             "table": table_name,
             "date_column": date_column,
@@ -1745,69 +1734,41 @@ def delete_by_date_range(
             "date_range_days": date_diff_days,
             "timeline_seconds": timeline
         }
-    
+
     # -------------------------------------------------
-    # 7. Perform Deletion (EXPENSIVE OPERATION)
+    # 6. Perform Native Delete
     # -------------------------------------------------
     try:
-        # Read entire table (PERFORMANCE BOTTLENECK)
-        logger.info(f"Starting deletion of {rows_to_delete} rows from {table_id} "
-                   f"(date range: {start_date} to {end_date})")
+        logger.info(f"Starting DELETE of {rows_to_delete} rows from {table_id}")
         
-        arrow_tbl = table.scan().to_arrow()
-        before_rows = arrow_tbl.num_rows
-        
-        # Build inverse filter (keep rows OUTSIDE the date range)
-        # We need to filter the Arrow table, not use Iceberg filter
-        date_col_data = arrow_tbl[date_column]
-        
-        # Convert dates to Arrow scalars for comparison
-        import pyarrow as pa
-        start_scalar = pa.scalar(start_dt)
-        end_scalar = pa.scalar(end_dt)
-        
-        # Keep rows where date < start_date OR date >= end_date
-        keep_mask = pc.or_(
-            pc.less(date_col_data, start_scalar),
-            pc.greater_equal(date_col_data, end_scalar)
-        )
-        
-        filtered_tbl = arrow_tbl.filter(keep_mask)
-        after_rows = filtered_tbl.num_rows
-        actual_deleted = before_rows - after_rows
-        
-        # Overwrite table (rewrites entire table)
-        table.overwrite(filtered_tbl)
+        # Native Iceberg delete operation
+        table.delete(delete_filter=delete_filter)
         
         logger.info(
-            f"Successfully deleted {actual_deleted} rows from {table_id}. "
-            f"Date range: {start_date} to {end_date}, Column: {date_column}"
+            f"Successfully deleted matches for range {start_date} to {end_date} in {table_id}"
         )
         
     except Exception as e:
         logger.error(f"Delete operation failed for {table_id}: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Delete operation failed. Data may be in inconsistent state. Error: {str(e)}"
+            detail=f"Delete operation failed. Error: {str(e)}"
         )
     
     # -------------------------------------------------
-    # 8. Response
+    # 7. Response
     # -------------------------------------------------
     timeline = round(time.perf_counter() - start_time, 3)
     
     return {
         "status": "deleted",
-        "message": f"Successfully deleted {actual_deleted} rows",
+        "message": f"Successfully deleted rows matching range (approx {rows_to_delete} rows)",
         "namespace": namespace,
         "table": table_name,
         "date_column": date_column,
         "start_date": start_date,
         "end_date": end_date,
-        "date_range_days": date_diff_days,
-        "rows_before": before_rows,
-        "rows_after": after_rows,
-        "rows_deleted": actual_deleted,
+        "rows_deleted_estimate": rows_to_delete,
         "timeline_seconds": timeline
     }
 

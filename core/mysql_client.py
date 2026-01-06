@@ -189,9 +189,7 @@ class MysqlCatalog:
             query = f"""
                 SELECT {columns}
                 FROM `{table_name}`
-                WHERE
-                    created_at >= %s
-                    AND created_at <= %s
+                WHERE created_at BETWEEN %s AND %s
                 ORDER BY order_id ASC
             """
 
@@ -203,7 +201,8 @@ class MysqlCatalog:
             return self.cursor.fetchall()
 
         except Exception as e:
-            print(f"MySQL fetch error in get_master_order: {e}")
+            print(f"MySQL fetch failed | table={table_name} "
+            f"range=({start_date},{end_date})")
             return []
 
     def get_master_w_order_date_range(
@@ -265,17 +264,13 @@ class MysqlCatalog:
             List of order records, or empty list on error
         """
         try:
-            # columns = ", ".join(masterorder_columns)
+
             columns = ", ".join(pickup_delivery_columns)
-            # columns = ", ".join(status_events_columns)
-            # columns = ", ".join(orderlineitems_columns)
 
             query = f"""
                 SELECT {columns}
                 FROM `{table_name}`
-                WHERE
-                    row_added_dt >= %s
-                    AND row_added_dt <= %s
+                WHERE row_added_dt BETWEEN %s AND %s
                 ORDER BY pickup_delivery_req_item_id ASC
             """
 
@@ -287,7 +282,8 @@ class MysqlCatalog:
             return self.cursor.fetchall()
 
         except Exception as e:
-            print(f"MySQL fetch error in get_master_order: {e}")
+            print(f"MySQL fetch failed | table={table_name} "
+            f"range=({start_date},{end_date})")
             return []
 
     def get_pickup_delivery_items_w_date_range(
@@ -398,9 +394,7 @@ class MysqlCatalog:
             query = f"""
                 SELECT {columns}
                 FROM `{table_name}`
-                WHERE
-                    row_added_dttm >= %s
-                    AND row_added_dttm <= %s
+                WHERE row_added_dttm BETWEEN %s AND %s
                 ORDER BY status_event_id ASC
             """
 
@@ -491,11 +485,6 @@ class MysqlCatalog:
                 FROM `{table_name}`
                 where row_added_dttm < %s
                 ORDER
-                 
-                 
-                 
-                 
-                 
                  
                  BY status_event_id ASC
                 LIMIT %s, %s
@@ -655,14 +644,14 @@ import pandas as pd
 
 
 
-# table_name = "vehicles"
-# ss = MysqlCatalog()
+table_name = "bluedart_zone_masters"
+ss = MysqlCatalog()
 # print(table_name)
 # print("#"*100)
 # print(ss.get_schema(table_name=table_name))
 # data = pd.DataFrame(ss.get_schema(table_name=table_name))
 # data.to_json(f"schema/{table_name}.json", orient="records", lines=True)
 # print("#"*100)
-# print(ss.get_count(table_name=table_name))
-# print("#"*100)
+print(ss.get_count(table_name=table_name))
+print("#"*100)
 # ss.close()

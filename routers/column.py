@@ -6,14 +6,21 @@ from pyiceberg.catalog import NoSuchNamespaceError,NamespaceAlreadyExistsError,T
 from pyiceberg.types import StringType
 import pyarrow as pa
 from pyiceberg.schema import Schema
+from .table_utility import TABLE_LIST
+from typing import Annotated
 
 router = APIRouter(prefix="", tags=["column"])
 
-
 @router.get("/total-count")
 def get_total_count(
-    namespace: str = Query(..., description="Namespace"),
-    table_name: str = Query(..., description="Table name")
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
 ):
     """
     Returns total row count of an Iceberg table using metadata (very fast).
@@ -44,8 +51,14 @@ def get_total_count(
 
 @router.get("/column")
 def column_stats(
-    namespace: str = Query(..., description="Namespace (e.g. 'sales')"),
-    table_name: str = Query(..., description="Table name (e.g. 'transactions')"),
+    namespace: str = Query(..., example="order_fulfillment"),
+    table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
     column_name: str = Query(..., description="Column name to analyze (e.g. 'pri_id')")
 ):
     """
