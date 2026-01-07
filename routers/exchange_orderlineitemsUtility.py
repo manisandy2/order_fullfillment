@@ -12,93 +12,94 @@ from pyiceberg.schema import Schema
 logger = logging.getLogger(__name__)
 
 # Module-level constants
-INTEGER_FIELDS = ["pincode","isActive"]
-# BOOLEAN_FIELDS = ["isActive"]
+INTEGER_FIELDS = ["quantity", "special_price"]
 BOOLEAN_FIELDS = []
-JSON_FIELDS = ["branch_code_list", "branchcode", "roles"]
-TIMESTAMP_FIELDS = [
-    "dob", "driving_license_expiry", 
-    "created_on", "updated_on", 
-    "created_at", "updated_at", 
-    "createdAt", "updatedAt"
+JSON_FIELDS = [
+    "product_policy",
+    "billed_details",
+    "delivery_details",
+    "invoice_details",
+    "tax_details",
+    "insurance_details",
+    "preorder_response",
+    "seller_details",
+    "shipment_details",
+    "return_details",
+    "return_refund_details",
+    "return_replace_details",
+    "return_exchange_details"
 ]
+TIMESTAMP_FIELDS = ["created_at", "updated_at"]
 REQUIRED_FIELDS = [
-    "id", "time_sorted_id", "type_of_work", "employee_from", "work_type",
-    "firstname", "lastname", "dob", "primary_contact", "address_line1",
-    "city", "state", "pincode", "country", "gender", "driving_license_num",
-    "driving_license_url", "aadhar_card_num", "aadhar_card_url",
-    "created_on", "created_at", "createdAt"
+    "line_item_id", 
+    "order_line_item_id", 
+    "master_order_id", 
+    "master_sale_order_id"
 ]
 
 # Field type overrides based on MySQL schema
 FIELD_OVERRIDES = {
-    # Primary & Keys
-    "id": (StringType(), pa.string(), True),
-    "time_sorted_id": (StringType(), pa.string(), True),
-    
-    # Required Varchars
-    "type_of_work": (StringType(), pa.string(), True),
-    "employee_from": (StringType(), pa.string(), True),
-    "work_type": (StringType(), pa.string(), True),
-    "firstname": (StringType(), pa.string(), True),
-    "lastname": (StringType(), pa.string(), True),
-    "primary_contact": (StringType(), pa.string(), True),
-    "address_line1": (StringType(), pa.string(), True),
-    "city": (StringType(), pa.string(), True),
-    "state": (StringType(), pa.string(), True),
-    "country": (StringType(), pa.string(), True),
-    "gender": (StringType(), pa.string(), True),
-    "driving_license_num": (StringType(), pa.string(), True),
-    "aadhar_card_num": (StringType(), pa.string(), True),
-    
-    # Nullable Varchars
-    "secondary_contact": (StringType(), pa.string(), False),
-    "address_line2": (StringType(), pa.string(), False),
-    "area": (StringType(), pa.string(), False),
-    "remarks": (StringType(), pa.string(), False),
-    "ratings": (StringType(), pa.string(), False),
-    "approval_status": (StringType(), pa.string(), False),
-    "voter_id_num": (StringType(), pa.string(), False),
-    "ration_card_num": (StringType(), pa.string(), False),
-    "pancard_num": (StringType(), pa.string(), False),
-    "emp_id": (StringType(), pa.string(), False),
+    # Keys & Varchars
+    "line_item_id": (StringType(), pa.string(), True), # PRI, not null
+    "order_line_item_id": (StringType(), pa.string(), True),
+    "master_order_id": (StringType(), pa.string(), True),
+    "master_sale_order_id": (StringType(), pa.string(), True),
+    "delivery_from": (StringType(), pa.string(), False),
+    "customer_status": (StringType(), pa.string(), False),
+    "inventory_status": (StringType(), pa.string(), False),
+    "internal_status": (StringType(), pa.string(), False),
+    "shipping_status": (StringType(), pa.string(), False),
+    "category_code": (StringType(), pa.string(), False),
+    "category_name": (StringType(), pa.string(), False),
+    "item_qty_label": (StringType(), pa.string(), False),
+    "exg_invo_no": (StringType(), pa.string(), False),
+    "exg_invo_date": (StringType(), pa.string(), False),
+    "home_pickup": (StringType(), pa.string(), False),
+    "order_inv_status": (StringType(), pa.string(), False),
+    "slug": (StringType(), pa.string(), False),
+    "product_name": (StringType(), pa.string(), False),
+    "model": (StringType(), pa.string(), False),
+    "erp_item_code": (StringType(), pa.string(), False),
+    "type_of_order": (StringType(), pa.string(), False),
+    "product_hsn": (StringType(), pa.string(), False),
+    "image": (StringType(), pa.string(), False),
+    "options": (StringType(), pa.string(), False),
+    "delivery_charges": (StringType(), pa.string(), False),
+    "price": (StringType(), pa.string(), False),
+    "brand_code": (StringType(), pa.string(), False),
+    "brand_name": (StringType(), pa.string(), False),
     "created_by": (StringType(), pa.string(), False),
     "updated_by": (StringType(), pa.string(), False),
+    "serial_no": (StringType(), pa.string(), False),
 
-    # Text fields (mapped to String)
-    "profile_pic_url": (StringType(), pa.string(), False), # nullable=true
-    "driving_license_url": (StringType(), pa.string(), True), # nullable=false
-    "aadhar_card_url": (StringType(), pa.string(), True), # nullable=false
-    "voter_id_url": (StringType(), pa.string(), False),
-    "ration_card_url": (StringType(), pa.string(), False),
-    "pancard_url": (StringType(), pa.string(), False),
+    # Integers (int(11))
+    "quantity": (LongType(), pa.int32(), False),
+    "special_price": (LongType(), pa.int32(), False),
 
-    # Integer fields
-    "pincode": (IntegerType(), pa.int32(), True),
-    
-    # Boolean fields (tinyint(1))
-    "isActive": (IntegerType(), pa.int32(), False), # default 0, nullable=true in schema
-
-    # JSON fields (mapped to String)
-    "branch_code_list": (StringType(), pa.string(), False),
-    "branchcode": (StringType(), pa.string(), False),
-    "roles": (StringType(), pa.string(), False),
+    # JSON fields
+    "product_policy": (StringType(), pa.string(), False),
+    "billed_details": (StringType(), pa.string(), False),
+    "delivery_details": (StringType(), pa.string(), False),
+    "invoice_details": (StringType(), pa.string(), False),
+    "tax_details": (StringType(), pa.string(), False),
+    "insurance_details": (StringType(), pa.string(), False),
+    "preorder_response": (StringType(), pa.string(), False),
+    "seller_details": (StringType(), pa.string(), False),
+    "shipment_details": (StringType(), pa.string(), False),
+    "return_details": (StringType(), pa.string(), False),
+    "return_refund_details": (StringType(), pa.string(), False),
+    "return_replace_details": (StringType(), pa.string(), False),
+    "return_exchange_details": (StringType(), pa.string(), False),
 
     # Timestamp fields
-    "dob": (TimestampType(), pa.timestamp('ms'), True),
-    "driving_license_expiry": (TimestampType(), pa.timestamp('ms'), False),
-    "created_on": (TimestampType(), pa.timestamp('ms'), True),
-    "updated_on": (TimestampType(), pa.timestamp('ms'), False),
-    "created_at": (TimestampType(), pa.timestamp('ms'), True),
+    "created_at": (TimestampType(), pa.timestamp('ms'), False),
     "updated_at": (TimestampType(), pa.timestamp('ms'), False),
-    "createdAt": (TimestampType(), pa.timestamp('ms'), True),
-    "updatedAt": (TimestampType(), pa.timestamp('ms'), False),
 }
 
 
-def drivers_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
+def exchange_orderlineitems_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     """
-    Generate Iceberg and Arrow schemas for drivers table.
+    Generate Iceberg and Arrow schemas for exchange_orderlineitems table.
     
     Args:
         record: Sample record dictionary
@@ -160,9 +161,9 @@ def drivers_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     return iceberg_schema, arrow_schema
 
 
-def drivers_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def exchange_orderlineitems_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Clean and normalize row data for drivers schema compliance.
+    Clean and normalize row data for exchange_orderlineitems schema compliance.
     
     Args:
         rows: List of row dictionaries
@@ -187,19 +188,16 @@ def drivers_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 except ValueError:
                     logger.warning(f"Invalid integer value for {f}: {val}, defaulting to 0")
                     row[f] = 0
+            elif isinstance(val, float): # Handle float to int conversion (e.g. 5.0 -> 5)
+                 row[f] = int(val)
             elif val is None:
-                # Pincode is required
-                if f == "pincode":
-                    logger.error(f"Required field {f} is None, defaulting to 0")
-                    row[f] = 0
-                else:
-                    row[f] = None
+                row[f] = None
 
-        # 2. Boolean Fields (tinyint(1))
+        # 2. Boolean Fields
         for f in BOOLEAN_FIELDS:
             val = row.get(f)
             if val is None:
-                row[f] = False # Default 0 as per schema
+                row[f] = False 
             elif isinstance(val, bool):
                 row[f] = val
             elif isinstance(val, int):
@@ -227,17 +225,8 @@ def drivers_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         for f in TIMESTAMP_FIELDS:
             val = row.get(f)
             
-            # Check if required (e.g., created_at, created_on, createdAt)
-            # dob is required too per schema
-            is_required = f in ["dob", "created_on", "created_at", "createdAt"]
-
             if val is None or val == "":
-                if is_required:
-                    # Provide default current timestamp for creation times
-                    row[f] = datetime.now()
-                    logger.info(f"Required timestamp {f} is None, using current timestamp")
-                else:
-                    row[f] = None
+                row[f] = None
                 continue
 
             if isinstance(val, datetime):
@@ -254,19 +243,16 @@ def drivers_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
             if parsed is None:
                 logger.warning(f"Failed to parse timestamp {f}: {val}")
-                if is_required:
-                    row[f] = datetime.now()
-                else:
-                    row[f] = None
+                row[f] = None
             else:
                 row[f] = parsed
 
-        # 5. String Fields (Everything else)
+        # 5. String Fields & Others (Everything in FIELD_OVERRIDES)
         for key, val in row.items():
-            if key not in INTEGER_FIELDS + BOOLEAN_FIELDS + JSON_FIELDS + TIMESTAMP_FIELDS:
+            if key in FIELD_OVERRIDES:
                  # Check if this field override exists and is required
-                if key in FIELD_OVERRIDES:
-                    _, _, is_required = FIELD_OVERRIDES[key]
+                _, _, is_required = FIELD_OVERRIDES[key]
+                if key not in INTEGER_FIELDS + BOOLEAN_FIELDS + JSON_FIELDS + TIMESTAMP_FIELDS:
                     if val is None:
                         if is_required:
                             logger.warning(f"Required string field {key} is None, defaulting to empty string")
@@ -275,8 +261,5 @@ def drivers_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                             row[key] = None
                     else:
                         row[key] = str(val)
-                else:
-                    # Generic handling for non-overridden fields
-                    row[key] = str(val) if val is not None else None
 
     return rows

@@ -1,5 +1,6 @@
 from pyiceberg.types import *
 
+# MasterSchema
 MasterSchema = [
     NestedField(1,"order_id",StringType(),required=True),
     NestedField(2, "sale_order_id", StringType(),required=True),
@@ -45,6 +46,7 @@ MasterSchema = [
     NestedField(42, "updated_at_new", TimestampType())
 ]
 
+# Pickup_delivery_items
 Pickup_delivery_items = [
     NestedField(1, "pickup_delivery_req_item_id", StringType()),
     NestedField(2, "pickup_delivery_req_id", StringType()),
@@ -190,6 +192,7 @@ Pickup_delivery_items = [
     NestedField(140, "updated_at_new", TimestampType()),
 ]
 
+# Status_event
 Status_event = [
     NestedField(1,"status_event_id",StringType()),
     NestedField(2,"type",StringType()),
@@ -257,6 +260,7 @@ Status_event = [
 
 ]
 
+# OrderLineItems
 OrderLineItems = [
     NestedField(1,"line_item_id",StringType()),
     NestedField(2,"order_line_item_id",StringType()),
@@ -312,6 +316,7 @@ OrderLineItems = [
     
 ]
 
+# OrderLineItems_test
 OrderLineItems_test = [
     NestedField(1, "line_item_id", StringType()),
     NestedField(2, "order_line_item_id", StringType()),
@@ -321,7 +326,7 @@ OrderLineItems_test = [
     NestedField(6,"created_at",TimestampType()),
 ]
 
-
+# Bluedart_zone_masters
 Bluedart_zone_masters = [
     NestedField(1, "id", LongType(), required=True),
     NestedField(2, "cpincode", StringType()),
@@ -339,6 +344,7 @@ Bluedart_zone_masters = [
     NestedField(14, "cscrcd", StringType(), required=False),
 ]
 
+# Courier_masters
 Courier_masters = [
     NestedField(1, "code", StringType(), required=True),
     NestedField(2, "name", StringType(), required=False),
@@ -356,7 +362,8 @@ Courier_masters = [
     NestedField(14, "branch_code_list", StringType(), required=False),
 ]
 
-Drivers = [
+# Drivers_schema
+Drivers_schema = [
     NestedField(1, "id", StringType(), required=True),
     NestedField(2, "time_sorted_id", StringType()),
     NestedField(3, "type_of_work", StringType()),
@@ -405,6 +412,7 @@ Drivers = [
     NestedField(46, "roles", StringType(), required=False),
 ]
 
+# Exchange_informations
 Exchange_informations = [
     NestedField(1, "order_id", StringType(), required=True),
     NestedField(2, "quote_id", StringType(), required=False),
@@ -435,6 +443,7 @@ Exchange_informations = [
     NestedField(27, "device_condition", StringType(), required=False),
 ]
 
+# Exchange_masterorders_w
 Exchange_masterorders_w = [
     NestedField(1, "order_id", StringType(), required=True),
     NestedField(2, "sale_order_id", StringType(), required=True),
@@ -476,6 +485,7 @@ Exchange_masterorders_w = [
     NestedField(38, "service_details", StringType(), required=False),
 ]
 
+# Exchange_masterorders
 Exchange_masterorders = [
     NestedField(1, "order_id", StringType(), required=True),
     NestedField(2, "sale_order_id", StringType(), required=True),
@@ -517,6 +527,7 @@ Exchange_masterorders = [
     NestedField(38, "updated_at", TimestampType(), required=False),
 ]
 
+# Exchange_orderlineitems
 Exchange_orderlineitems = [
     NestedField(1, "line_item_id", StringType(), required=True),
     NestedField(2, "order_line_item_id", StringType(), required=True),
@@ -568,6 +579,7 @@ Exchange_orderlineitems = [
     NestedField(48, "serial_no", StringType(), required=False),
 ]
 
+# ExternalCallLogs
 ExternalCallLogs = [
     NestedField(1, "id", StringType(), required=True),
     NestedField(2, "ext_log_id", StringType(), required=False),
@@ -578,6 +590,7 @@ ExternalCallLogs = [
     NestedField(7, "created_by", StringType(), required=False),
 ]
 
+# Hub_masters
 Hub_masters = [
     NestedField(1, "id", StringType(), required=True),
     NestedField(2, "store_name", StringType(), required=True),
@@ -602,6 +615,7 @@ Hub_masters = [
     NestedField(21, "store_contact_person", StringType(), required=True),
 ]
 
+# Installation_services
 Installation_services = [
     NestedField(1, "id", StringType(), required=True),
     NestedField(2, "service_type", StringType(), required=True),
@@ -623,6 +637,7 @@ Installation_services = [
     NestedField(18, "created_by", StringType(), required=False),
 ]
 
+# Intransit_manifests
 Intransit_manifests = [
     NestedField(1, "t_manifest_id", StringType(), required=True),
     NestedField(2, "t_shipment_id", StringType(), required=True),

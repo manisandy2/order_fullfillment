@@ -46,7 +46,7 @@ if isinstance(val, (dict, list)):
 ### 1. Generate Schema
 
 ```python
-from routers.exchangeMasterOrdersUtility import exchange_masterorders_schema
+from routers.exchange_masterordersUtility import exchange_masterorders_schema
 
 sample_record = {
     "order_id": "EX-ORD-001",
@@ -63,13 +63,13 @@ iceberg_schema, arrow_schema = exchange_masterorders_schema(sample_record)
 ### 2. Clean Data
 
 ```python
-from routers.exchangeMasterOrdersUtility import exchange_masterorders_clean_rows
+from routers.exchange_masterordersUtility import exchange_masterorders_clean_rows
 
 raw_rows = [
     {
         "order_id": "EX-ORD-001",
         "latitude": "19.0760",  # String to float
-        "lineitems": [{"sku": "A"}] # List to JSON string
+        "lineitems": [{"sku": "A"}]  # List to JSON string
     }
 ]
 

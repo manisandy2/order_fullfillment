@@ -8,7 +8,10 @@ TABLE_LIST = [
     "pickup_delivery_items_w",
     "orderlineitems",
     "status_events",
-    "bluedart_zone_masters"
+    "bluedart_zone_masters",
+    "courier_masters",
+    "drivers",
+    "exchange_informations"
 ]
 
 

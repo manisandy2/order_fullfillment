@@ -644,14 +644,14 @@ import pandas as pd
 
 
 
-table_name = "bluedart_zone_masters"
-ss = MysqlCatalog()
-# print(table_name)
+# table_name = "bluedart_zone_masters"
+# ss = MysqlCatalog()
+# # print(table_name)
+# # print("#"*100)
+# # print(ss.get_schema(table_name=table_name))
+# # data = pd.DataFrame(ss.get_schema(table_name=table_name))
+# # data.to_json(f"schema/{table_name}.json", orient="records", lines=True)
+# # print("#"*100)
+# print(ss.get_count(table_name=table_name))
 # print("#"*100)
-# print(ss.get_schema(table_name=table_name))
-# data = pd.DataFrame(ss.get_schema(table_name=table_name))
-# data.to_json(f"schema/{table_name}.json", orient="records", lines=True)
-# print("#"*100)
-print(ss.get_count(table_name=table_name))
-print("#"*100)
 # ss.close()

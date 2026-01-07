@@ -38,7 +38,7 @@ Integers like `quantity` are nullable in the source.
 ### 1. Generate Schema
 
 ```python
-from routers.exchangeOrderLineItemsUtility import exchange_orderlineitems_schema
+from routers.exchange_orderlineitemsUtility import exchange_orderlineitems_schema
 
 sample_record = {
     "line_item_id": "LITEM-001",
@@ -55,13 +55,13 @@ iceberg_schema, arrow_schema = exchange_orderlineitems_schema(sample_record)
 ### 2. Clean Data
 
 ```python
-from routers.exchangeOrderLineItemsUtility import exchange_orderlineitems_clean_rows
+from routers.exchange_orderlineitemsUtility import exchange_orderlineitems_clean_rows
 
 raw_rows = [
     {
         "line_item_id": "LITEM-001",
         "quantity": "5",  # String to int
-        "product_policy": {"policy": "standard"} # Dict to JSON string
+        "product_policy": {"policy": "standard"}  # Dict to JSON string
     }
 ]
 
