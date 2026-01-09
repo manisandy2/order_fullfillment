@@ -4,58 +4,98 @@ from typing import Dict, List, Tuple, Any
 import pyarrow as pa
 from pyiceberg.types import (
     BooleanType, LongType, DoubleType, DateType, IntegerType,
-    TimestampType, StringType, NestedField
+    TimestampType, StringType, NestedField, FloatType
 )
 from datetime import datetime, date
 from pyiceberg.schema import Schema
 
 logger = logging.getLogger(__name__)
 
-# Module-level constants
-TIMESTAMP_FIELDS = ["created_at", "updated_at"]
-BOOLEAN_FIELDS = ["isactive"]
+REQUIRED_FIELDS = [
+    "pickup_delivery_req_id",
+]
 
-REQUIRED_FIELDS = ["id", "store_name", "state", "district", "store_mobile_no", "store_mailid", 
-                   "store_shortcode", "pincode", "customer_code", "store_address", 
-                   "area_code", "login_user", "created_at", "updated_at", "isactive", 
-                   "store_contact_person"]
+TIMESTAMP_FIELDS = [
+    "invoice_date",
+    "expected",
+    "row_added_dttm",
+    "row_updated_dttm",
+    "updated_at_new",
+]
 
-# Field type overrides based on MySQL schema
+BOOLEAN_FIELDS = [
+    "is_accepted",
+]
+
+INTEGER_FIELDS = [
+    "oms_data_migration_status",
+]
+
+VARCHAR_FIELDS = [
+    "pickup_delivery_req_id",
+    "order_id",
+    "sale_order_id",
+    "invoice_no",
+    "invoice_reff_no",
+    "request_type",
+    "invoice_status",
+    "order_type",
+    "order_inv_status",
+    "row_added_by",
+    "row_updated_by",
+]
+
 FIELD_OVERRIDES = {
-    # Keys / Required
-    "id": (StringType(), pa.string(), True),
-    "store_name": (StringType(), pa.string(), True),
-    "state": (StringType(), pa.string(), True),
-    "district": (StringType(), pa.string(), True),
-    "store_mobile_no": (StringType(), pa.string(), True),
-    "store_mailid": (StringType(), pa.string(), True),
-    "store_shortcode": (StringType(), pa.string(), True),
-    "pincode": (StringType(), pa.string(), True), # text in MySQL
-    "customer_code": (StringType(), pa.string(), True), # text
-    "store_address": (StringType(), pa.string(), True), # text
-    "store_address_line1": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line2": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line3": (StringType(), pa.string(), True), # text, NOT NULL
-    "area_code": (StringType(), pa.string(), True), # text
-    "login_user": (StringType(), pa.string(), True),
-    "store_contact_person": (StringType(), pa.string(), True),
 
-    # Boolean/Tinyint
-    "isactive": (IntegerType(), pa.int32(), True),
+    # 🔑 Primary Key
+    "pickup_delivery_req_id": (StringType(), pa.string(), True),
 
-    # Nullable Strings/Varchar
-    "created_by": (StringType(), pa.string(), False),
-    "updated_by": (StringType(), pa.string(), False),
+    # 🧾 Order / Invoice
+    "order_id": (StringType(), pa.string(), False),
+    "sale_order_id": (StringType(), pa.string(), False),
+    "invoice_no": (StringType(), pa.string(), False),
+    "invoice_date": (TimestampType(), pa.timestamp("ms"), False),
+    "invoice_reff_no": (StringType(), pa.string(), False),
+    "invoice_reff_date": (StringType(), pa.string(), False),
+    "invoice_status": (StringType(), pa.string(), False),
 
-    # Timestamp fields
-    "created_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
-    "updated_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
+    # 📦 Request Details
+    "request_type": (StringType(), pa.string(), False),
+    "inventory_details": (StringType(), pa.string(), False),
+    "return_details": (StringType(), pa.string(), False),
+    "collection_details": (StringType(), pa.string(), False),
+    "to_details": (StringType(), pa.string(), False),
+    "shipment_details": (StringType(), pa.string(), False),
+    "order_details": (StringType(), pa.string(), False),
+
+    # ⏱ Expected / Status
+    "expected": (TimestampType(), pa.timestamp("ms"), False),
+    "is_accepted": (IntegerType(), pa.int32(), False),
+    "rejection_reason": (StringType(), pa.string(), False),
+
+    # 🌍 Geo
+    "latitude": (DoubleType(), pa.float64(), False),
+    "longitude": (DoubleType(), pa.float64(), False),
+
+    # 📊 Order State
+    "order_type": (StringType(), pa.string(), False),
+    "order_inv_status": (StringType(), pa.string(), False),
+
+    # 🕒 Audit
+    "row_added_dttm": (TimestampType(), pa.timestamp("ms"), False),
+    "row_updated_dttm": (TimestampType(), pa.timestamp("ms"), False),
+    "updated_at_new": (TimestampType(), pa.timestamp("ms"), False),
+    "row_added_by": (StringType(), pa.string(), False),
+    "row_updated_by": (StringType(), pa.string(), False),
+
+    # ⚙ Migration / System
+    "oms_data_migration_status": (IntegerType(), pa.int32(), False),
 }
 
 
-def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
+def schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     """
-    Generate Iceberg and Arrow schemas for hub_masters table.
+    Generate Iceberg and Arrow schemas for installation_services table.
     
     Args:
         record: Sample record dictionary
@@ -117,7 +157,7 @@ def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     return iceberg_schema, arrow_schema
 
 
-def hub_masters_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Clean and normalize row data for hub_masters schema compliance.
     

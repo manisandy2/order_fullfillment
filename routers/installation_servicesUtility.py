@@ -12,50 +12,52 @@ from pyiceberg.schema import Schema
 logger = logging.getLogger(__name__)
 
 # Module-level constants
-TIMESTAMP_FIELDS = ["created_at", "updated_at"]
-BOOLEAN_FIELDS = ["isactive"]
+TIMESTAMP_FIELDS = ['created_at']
+BOOLEAN_FIELDS = []
+VARCHAR_FIELDS = ['id', 'service_type', 'order_id', 'item_code', 'item_image', 'item_name',
+                  'item_serial_no', 'invoice_no', 'installation_status', 'installation_sub_status',
+                  'installation_rating', 'installation_remarks', 'installation_address',
+                  'installation_call_booking_date', 'installation_completed_date',
+                  'installation_call_booking_number', 'created_by']
 
-REQUIRED_FIELDS = ["id", "store_name", "state", "district", "store_mobile_no", "store_mailid", 
-                   "store_shortcode", "pincode", "customer_code", "store_address", 
-                   "area_code", "login_user", "created_at", "updated_at", "isactive", 
-                   "store_contact_person"]
+
+REQUIRED_FIELDS = ['id', 'service_type', 'order_id', 'item_code', 'item_image', 'item_name',
+                   'item_serial_no', 'invoice_no', 'installation_status',
+                   'installation_sub_status', 'created_at']
 
 # Field type overrides based on MySQL schema
 FIELD_OVERRIDES = {
-    # Keys / Required
+    # Primary / required identifiers
     "id": (StringType(), pa.string(), True),
-    "store_name": (StringType(), pa.string(), True),
-    "state": (StringType(), pa.string(), True),
-    "district": (StringType(), pa.string(), True),
-    "store_mobile_no": (StringType(), pa.string(), True),
-    "store_mailid": (StringType(), pa.string(), True),
-    "store_shortcode": (StringType(), pa.string(), True),
-    "pincode": (StringType(), pa.string(), True), # text in MySQL
-    "customer_code": (StringType(), pa.string(), True), # text
-    "store_address": (StringType(), pa.string(), True), # text
-    "store_address_line1": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line2": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line3": (StringType(), pa.string(), True), # text, NOT NULL
-    "area_code": (StringType(), pa.string(), True), # text
-    "login_user": (StringType(), pa.string(), True),
-    "store_contact_person": (StringType(), pa.string(), True),
+    "service_type": (StringType(), pa.string(), True),  # enum
+    "order_id": (StringType(), pa.string(), False),
+    "item_code": (StringType(), pa.string(), True),
+    "item_image": (StringType(), pa.string(), True),
+    "item_name": (StringType(), pa.string(), True),
+    "item_serial_no": (StringType(), pa.string(), True),
+    "invoice_no": (StringType(), pa.string(), True),
 
-    # Boolean/Tinyint
-    "isactive": (IntegerType(), pa.int32(), True),
+    # Status enums (stored as STRING in Iceberg)
+    "installation_status": (StringType(), pa.string(), True),       # enum
+    "installation_sub_status": (StringType(), pa.string(), True),   # enum
 
-    # Nullable Strings/Varchar
+    # Nullable text fields
+    "installation_rating": (StringType(), pa.string(), False),
+    "installation_remarks": (StringType(), pa.string(), False),
+    "installation_address": (StringType(), pa.string(), False),
+    "installation_call_booking_date": (StringType(), pa.string(), False),
+    "installation_completed_date": (StringType(), pa.string(), False),
+    "installation_call_booking_number": (StringType(), pa.string(), False),
     "created_by": (StringType(), pa.string(), False),
-    "updated_by": (StringType(), pa.string(), False),
 
-    # Timestamp fields
-    "created_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
-    "updated_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
+    # Timestamp
+    "created_at": (TimestampType(), pa.timestamp("ms"), True),
 }
 
 
-def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
+def installation_services_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     """
-    Generate Iceberg and Arrow schemas for hub_masters table.
+    Generate Iceberg and Arrow schemas for installation_services table.
     
     Args:
         record: Sample record dictionary
@@ -117,7 +119,7 @@ def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     return iceberg_schema, arrow_schema
 
 
-def hub_masters_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def installation_services_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Clean and normalize row data for hub_masters schema compliance.
     

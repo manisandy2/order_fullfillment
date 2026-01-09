@@ -986,6 +986,649 @@ def create(
     )
 
 
+@router.post("/hub_masters/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "hub_masters"
+
+    exchange_mo_schema = Schema(fields=Hub_masters)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/installation_services/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "installation_services"
+
+    exchange_mo_schema = Schema(fields=Installation_services)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/intransit_manifests/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "intransit_manifests"
+
+    exchange_mo_schema = Schema(fields=Intransit_manifests)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/intransit_pickup_delivery_items/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "intransit_pickup_delivery_items"
+
+    exchange_mo_schema = Schema(fields=intransit_pickup_delivery_items)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("row_added_dt").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="intransit_pickupdelivery_id ASC"
+    )
+
+####
+@router.post("/intransit_shipments/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "intransit_shipments"
+
+    exchange_mo_schema = Schema(fields=intransit_shipments)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/invoice_masters/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "invoice_masters"
+
+    exchange_mo_schema = Schema(fields=invoice_masters)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+@router.post("/manifests/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "manifests"
+
+    exchange_mo_schema = Schema(fields=manifests)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="time_sorted_id ASC"
+    )
+@router.post("/pick_lists/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "pick_lists"
+
+    exchange_mo_schema = Schema(fields=pick_lists)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="picklist_id ASC"
+    )
+###
+@router.post("/pickup_deliveries/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "pickup_deliveries"
+
+    exchange_mo_schema = Schema(fields=pickup_deliveries)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("row_added_dttm").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/reason_messages/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "reason_messages"
+
+    exchange_mo_schema = Schema(fields=reason_messages)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/return_masterorders/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "return_masterorders"
+
+    exchange_mo_schema = Schema(fields=return_masterorders)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/return_masterorders_w/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "return_masterorders_w"
+
+    exchange_mo_schema = Schema(fields=return_masterorders_w)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/return_orderlineitems/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "return_orderlineitems"
+
+    exchange_mo_schema = Schema(fields=return_orderlineitems)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/roles/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "roles"
+
+    exchange_mo_schema = Schema(fields=roles)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/scheduler_retention_log/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "scheduler_retention_log"
+
+    exchange_mo_schema = Schema(fields=scheduler_retention_log)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/schedulers/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "schedulers"
+
+    exchange_mo_schema = Schema(fields=schedulers)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/schedulers_w/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "schedulers_w"
+
+    exchange_mo_schema = Schema(fields=schedulers_w)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/service_history_c/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "service_history_c"
+
+    exchange_mo_schema = Schema(fields=service_history_c)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+@router.post("/service_master_c/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "service_master_c"
+
+    exchange_mo_schema = Schema(fields=service_master_c)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+@router.post("/service_master_h/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "service_master_h"
+
+    exchange_mo_schema = Schema(fields=service_master_h)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+@router.post("/shipments/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "shipments"
+
+    exchange_mo_schema = Schema(fields=shipments)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+@router.post("/uploadloggers/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "uploadloggers"
+
+    exchange_mo_schema = Schema(fields=uploadloggers)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+@router.post("/users/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "users"
+
+    exchange_mo_schema = Schema(fields=users)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+@router.post("/vehicles/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "vehicles"
+
+    exchange_mo_schema = Schema(fields=vehicles)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+
 
 @router.post("/table/rename")
 def rename_table(
@@ -1036,7 +1679,6 @@ def rename_table(
                 "new_table": new_identifier
             }
         )
-
 
 
 @router.delete("/table/delete")

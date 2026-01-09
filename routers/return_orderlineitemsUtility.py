@@ -4,58 +4,136 @@ from typing import Dict, List, Tuple, Any
 import pyarrow as pa
 from pyiceberg.types import (
     BooleanType, LongType, DoubleType, DateType, IntegerType,
-    TimestampType, StringType, NestedField
+    TimestampType, StringType, NestedField, FloatType
 )
 from datetime import datetime, date
 from pyiceberg.schema import Schema
 
 logger = logging.getLogger(__name__)
 
-# Module-level constants
-TIMESTAMP_FIELDS = ["created_at", "updated_at"]
-BOOLEAN_FIELDS = ["isactive"]
+REQUIRED_FIELDS = [
+    "line_item_id",
+    "order_line_item_id",
+    "master_order_id",
+    "master_sale_order_id",
+]
 
-REQUIRED_FIELDS = ["id", "store_name", "state", "district", "store_mobile_no", "store_mailid", 
-                   "store_shortcode", "pincode", "customer_code", "store_address", 
-                   "area_code", "login_user", "created_at", "updated_at", "isactive", 
-                   "store_contact_person"]
+TIMESTAMP_FIELDS = [
+    "created_at",
+    "updated_at",
+]
 
-# Field type overrides based on MySQL schema
+BOOLEAN_FIELDS = []
+
+INTEGER_FIELDS = [
+    "quantity",
+    "special_price",
+]
+
+VARCHAR_FIELDS = [
+    "line_item_id",
+    "order_line_item_id",
+    "master_order_id",
+    "master_sale_order_id",
+    "delivery_from",
+    "customer_status",
+    "inventory_status",
+    "internal_status",
+    "shipping_status",
+    "category_code",
+    "category_name",
+    "item_qty_label",
+    "exg_invo_no",
+    "exg_invo_date",
+    "home_pickup",
+    "order_inv_status",
+    "slug",
+    "product_name",
+    "model",
+    "erp_item_code",
+    "type_of_order",
+    "product_hsn",
+    "options",
+    "delivery_charges",
+    "price",
+    "brand_code",
+    "brand_name",
+    "created_by",
+    "updated_by",
+]
+
 FIELD_OVERRIDES = {
-    # Keys / Required
-    "id": (StringType(), pa.string(), True),
-    "store_name": (StringType(), pa.string(), True),
-    "state": (StringType(), pa.string(), True),
-    "district": (StringType(), pa.string(), True),
-    "store_mobile_no": (StringType(), pa.string(), True),
-    "store_mailid": (StringType(), pa.string(), True),
-    "store_shortcode": (StringType(), pa.string(), True),
-    "pincode": (StringType(), pa.string(), True), # text in MySQL
-    "customer_code": (StringType(), pa.string(), True), # text
-    "store_address": (StringType(), pa.string(), True), # text
-    "store_address_line1": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line2": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line3": (StringType(), pa.string(), True), # text, NOT NULL
-    "area_code": (StringType(), pa.string(), True), # text
-    "login_user": (StringType(), pa.string(), True),
-    "store_contact_person": (StringType(), pa.string(), True),
 
-    # Boolean/Tinyint
-    "isactive": (IntegerType(), pa.int32(), True),
+    # 🔑 Primary / Identifiers
+    "line_item_id": (StringType(), pa.string(), True),
+    "order_line_item_id": (StringType(), pa.string(), True),
+    "master_order_id": (StringType(), pa.string(), True),
+    "master_sale_order_id": (StringType(), pa.string(), True),
 
-    # Nullable Strings/Varchar
+    # 📦 Status / Flow
+    "delivery_from": (StringType(), pa.string(), False),
+    "customer_status": (StringType(), pa.string(), False),
+    "inventory_status": (StringType(), pa.string(), False),
+    "internal_status": (StringType(), pa.string(), False),
+    "shipping_status": (StringType(), pa.string(), False),
+    "order_inv_status": (StringType(), pa.string(), False),
+    "home_pickup": (StringType(), pa.string(), False),
+
+    # 🧾 Category / Product
+    "category_code": (StringType(), pa.string(), False),
+    "category_name": (StringType(), pa.string(), False),
+    "product_name": (StringType(), pa.string(), False),
+    "model": (StringType(), pa.string(), False),
+    "erp_item_code": (StringType(), pa.string(), False),
+    "type_of_order": (StringType(), pa.string(), False),
+    "product_hsn": (StringType(), pa.string(), False),
+    "slug": (StringType(), pa.string(), False),
+    "image": (StringType(), pa.string(), False),
+    "options": (StringType(), pa.string(), False),
+
+    # 🔢 Quantity / Pricing
+    "quantity": (IntegerType(), pa.int32(), False),
+    "special_price": (IntegerType(), pa.int32(), False),
+    "item_qty_label": (StringType(), pa.string(), False),
+    "delivery_charges": (StringType(), pa.string(), False),
+    "price": (StringType(), pa.string(), False),
+
+    # 🧾 Invoice / Exchange
+    "exg_invo_no": (StringType(), pa.string(), False),
+    "exg_invo_date": (StringType(), pa.string(), False),
+
+    # 🏷 Brand
+    "brand_code": (StringType(), pa.string(), False),
+    "brand_name": (StringType(), pa.string(), False),
+
+    # 📦 JSON payloads (ALL JSON → String)
+    "product_policy": (StringType(), pa.string(), False),
+    "billed_details": (StringType(), pa.string(), False),
+    "delivery_details": (StringType(), pa.string(), False),
+    "invoice_details": (StringType(), pa.string(), False),
+    "tax_details": (StringType(), pa.string(), False),
+    "insurance_details": (StringType(), pa.string(), False),
+    "preorder_response": (StringType(), pa.string(), False),
+    "seller_details": (StringType(), pa.string(), False),
+    "shipment_details": (StringType(), pa.string(), False),
+    "return_details": (StringType(), pa.string(), False),
+    "return_refund_details": (StringType(), pa.string(), False),
+    "return_replace_details": (StringType(), pa.string(), False),
+    "return_exchange_details": (StringType(), pa.string(), False),
+
+    # 🔐 Serial / Extra
+    "serial_no": (StringType(), pa.string(), False),
+
+    # 🕒 Audit
+    "created_at": (TimestampType(), pa.timestamp("ms"), False),
+    "updated_at": (TimestampType(), pa.timestamp("ms"), False),
     "created_by": (StringType(), pa.string(), False),
     "updated_by": (StringType(), pa.string(), False),
-
-    # Timestamp fields
-    "created_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
-    "updated_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
 }
 
-
-def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
+def schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     """
-    Generate Iceberg and Arrow schemas for hub_masters table.
+    Generate Iceberg and Arrow schemas for installation_services table.
     
     Args:
         record: Sample record dictionary
@@ -117,7 +195,7 @@ def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     return iceberg_schema, arrow_schema
 
 
-def hub_masters_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Clean and normalize row data for hub_masters schema compliance.
     

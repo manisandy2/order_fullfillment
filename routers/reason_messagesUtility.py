@@ -4,58 +4,55 @@ from typing import Dict, List, Tuple, Any
 import pyarrow as pa
 from pyiceberg.types import (
     BooleanType, LongType, DoubleType, DateType, IntegerType,
-    TimestampType, StringType, NestedField
+    TimestampType, StringType, NestedField, FloatType
 )
 from datetime import datetime, date
 from pyiceberg.schema import Schema
 
 logger = logging.getLogger(__name__)
 
-# Module-level constants
-TIMESTAMP_FIELDS = ["created_at", "updated_at"]
-BOOLEAN_FIELDS = ["isactive"]
+REQUIRED_FIELDS = [
+    "id",
+    "created_at",
+]
+TIMESTAMP_FIELDS = [
+    "created_at",
+]
 
-REQUIRED_FIELDS = ["id", "store_name", "state", "district", "store_mobile_no", "store_mailid", 
-                   "store_shortcode", "pincode", "customer_code", "store_address", 
-                   "area_code", "login_user", "created_at", "updated_at", "isactive", 
-                   "store_contact_person"]
+BOOLEAN_FIELDS = []
 
-# Field type overrides based on MySQL schema
+INTEGER_FIELDS = [
+    "id",
+]
+
+VARCHAR_FIELDS = [
+    "time_sorted_id",
+    "status",
+    "channel",
+    "type",
+]
+
 FIELD_OVERRIDES = {
-    # Keys / Required
-    "id": (StringType(), pa.string(), True),
-    "store_name": (StringType(), pa.string(), True),
-    "state": (StringType(), pa.string(), True),
-    "district": (StringType(), pa.string(), True),
-    "store_mobile_no": (StringType(), pa.string(), True),
-    "store_mailid": (StringType(), pa.string(), True),
-    "store_shortcode": (StringType(), pa.string(), True),
-    "pincode": (StringType(), pa.string(), True), # text in MySQL
-    "customer_code": (StringType(), pa.string(), True), # text
-    "store_address": (StringType(), pa.string(), True), # text
-    "store_address_line1": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line2": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line3": (StringType(), pa.string(), True), # text, NOT NULL
-    "area_code": (StringType(), pa.string(), True), # text
-    "login_user": (StringType(), pa.string(), True),
-    "store_contact_person": (StringType(), pa.string(), True),
 
-    # Boolean/Tinyint
-    "isactive": (IntegerType(), pa.int32(), True),
+    # 🔑 Primary Key
+    "id": (IntegerType(), pa.int32(), True),
 
-    # Nullable Strings/Varchar
-    "created_by": (StringType(), pa.string(), False),
-    "updated_by": (StringType(), pa.string(), False),
+    # 🧾 Event / Status Info
+    "time_sorted_id": (StringType(), pa.string(), False),
+    "status": (StringType(), pa.string(), False),
+    "channel": (StringType(), pa.string(), False),
+    "type": (StringType(), pa.string(), False),
 
-    # Timestamp fields
-    "created_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
-    "updated_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
+    # 📦 Message payload (JSON)
+    "msg": (StringType(), pa.string(), False),
+
+    # 🕒 Audit
+    "created_at": (TimestampType(), pa.timestamp("ms"), True),
 }
 
-
-def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
+def schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     """
-    Generate Iceberg and Arrow schemas for hub_masters table.
+    Generate Iceberg and Arrow schemas for installation_services table.
     
     Args:
         record: Sample record dictionary
@@ -117,7 +114,7 @@ def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     return iceberg_schema, arrow_schema
 
 
-def hub_masters_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Clean and normalize row data for hub_masters schema compliance.
     

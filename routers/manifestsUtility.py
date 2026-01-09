@@ -4,58 +4,73 @@ from typing import Dict, List, Tuple, Any
 import pyarrow as pa
 from pyiceberg.types import (
     BooleanType, LongType, DoubleType, DateType, IntegerType,
-    TimestampType, StringType, NestedField
+    TimestampType, StringType, NestedField, FloatType
 )
 from datetime import datetime, date
 from pyiceberg.schema import Schema
 
 logger = logging.getLogger(__name__)
 
-# Module-level constants
-TIMESTAMP_FIELDS = ["created_at", "updated_at"]
-BOOLEAN_FIELDS = ["isactive"]
 
-REQUIRED_FIELDS = ["id", "store_name", "state", "district", "store_mobile_no", "store_mailid", 
-                   "store_shortcode", "pincode", "customer_code", "store_address", 
-                   "area_code", "login_user", "created_at", "updated_at", "isactive", 
-                   "store_contact_person"]
+REQUIRED_FIELDS = [
+    "manifest_id",
+    "time_sorted_id",
+    "shipment_id",
+    "items_total",
+    "createdAt",
+    "created_at",
+]
 
-# Field type overrides based on MySQL schema
+TIMESTAMP_FIELDS = [
+    "createdAt",
+    "updatedAt",
+    "created_at",
+    "updated_at",
+]
+
+BOOLEAN_FIELDS = []
+
+INTEGER_FIELDS = [
+    "items_total",
+]
+
+VARCHAR_FIELDS = [
+    "manifest_id",
+    "time_sorted_id",
+    "shipment_id",
+    "manifest_type",
+    "created_by",
+    "updated_by",
+]
+
 FIELD_OVERRIDES = {
-    # Keys / Required
-    "id": (StringType(), pa.string(), True),
-    "store_name": (StringType(), pa.string(), True),
-    "state": (StringType(), pa.string(), True),
-    "district": (StringType(), pa.string(), True),
-    "store_mobile_no": (StringType(), pa.string(), True),
-    "store_mailid": (StringType(), pa.string(), True),
-    "store_shortcode": (StringType(), pa.string(), True),
-    "pincode": (StringType(), pa.string(), True), # text in MySQL
-    "customer_code": (StringType(), pa.string(), True), # text
-    "store_address": (StringType(), pa.string(), True), # text
-    "store_address_line1": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line2": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line3": (StringType(), pa.string(), True), # text, NOT NULL
-    "area_code": (StringType(), pa.string(), True), # text
-    "login_user": (StringType(), pa.string(), True),
-    "store_contact_person": (StringType(), pa.string(), True),
 
-    # Boolean/Tinyint
-    "isactive": (IntegerType(), pa.int32(), True),
+    # 🔑 Primary / Identifiers
+    "manifest_id": (StringType(), pa.string(), True),
+    "time_sorted_id": (StringType(), pa.string(), True),
+    "shipment_id": (StringType(), pa.string(), True),
 
-    # Nullable Strings/Varchar
+    # 📦 Manifest details
+    "manifest_type": (StringType(), pa.string(), False),
+    "items_total": (IntegerType(), pa.int32(), True),
+
+    # 👤 Audit users
     "created_by": (StringType(), pa.string(), False),
     "updated_by": (StringType(), pa.string(), False),
 
-    # Timestamp fields
-    "created_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
-    "updated_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
+    # 🕒 Audit timestamps (camelCase)
+    "createdAt": (TimestampType(), pa.timestamp("ms"), True),
+    "updatedAt": (TimestampType(), pa.timestamp("ms"), False),
+
+    # 🕒 Audit timestamps (snake_case)
+    "created_at": (TimestampType(), pa.timestamp("ms"), True),
+    "updated_at": (TimestampType(), pa.timestamp("ms"), False),
 }
 
 
-def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
+def schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     """
-    Generate Iceberg and Arrow schemas for hub_masters table.
+    Generate Iceberg and Arrow schemas for installation_services table.
     
     Args:
         record: Sample record dictionary
@@ -117,7 +132,7 @@ def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     return iceberg_schema, arrow_schema
 
 
-def hub_masters_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Clean and normalize row data for hub_masters schema compliance.
     

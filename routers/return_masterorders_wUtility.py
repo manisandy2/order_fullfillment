@@ -4,58 +4,116 @@ from typing import Dict, List, Tuple, Any
 import pyarrow as pa
 from pyiceberg.types import (
     BooleanType, LongType, DoubleType, DateType, IntegerType,
-    TimestampType, StringType, NestedField
+    TimestampType, StringType, NestedField, FloatType
 )
 from datetime import datetime, date
 from pyiceberg.schema import Schema
 
 logger = logging.getLogger(__name__)
 
-# Module-level constants
-TIMESTAMP_FIELDS = ["created_at", "updated_at"]
-BOOLEAN_FIELDS = ["isactive"]
+REQUIRED_FIELDS = [
+    "order_id",
+    "sale_order_id",
+]
 
-REQUIRED_FIELDS = ["id", "store_name", "state", "district", "store_mobile_no", "store_mailid", 
-                   "store_shortcode", "pincode", "customer_code", "store_address", 
-                   "area_code", "login_user", "created_at", "updated_at", "isactive", 
-                   "store_contact_person"]
+TIMESTAMP_FIELDS = [
+    "invoice_date",
+    "created_at",
+    "updated_at",
+]
 
-# Field type overrides based on MySQL schema
+BOOLEAN_FIELDS = []
+
+INTEGER_FIELDS = []
+
+VARCHAR_FIELDS = [
+    "order_id",
+    "sale_order_id",
+    "invoice_no",
+    "invoice_reff_no",
+    "channel",
+    "channel_medium",
+    "order_status",
+    "order_inv_status",
+    "order_type",
+    "delivery_from",
+    "delivery_from_branchcode",
+    "billing_branch_code",
+    "cust_id",
+    "cust_primary_email",
+    "cust_primary_contact",
+    "cust_mobile",
+    "invoice_pdf",
+    "created_by",
+    "updated_by",
+]
+
 FIELD_OVERRIDES = {
-    # Keys / Required
-    "id": (StringType(), pa.string(), True),
-    "store_name": (StringType(), pa.string(), True),
-    "state": (StringType(), pa.string(), True),
-    "district": (StringType(), pa.string(), True),
-    "store_mobile_no": (StringType(), pa.string(), True),
-    "store_mailid": (StringType(), pa.string(), True),
-    "store_shortcode": (StringType(), pa.string(), True),
-    "pincode": (StringType(), pa.string(), True), # text in MySQL
-    "customer_code": (StringType(), pa.string(), True), # text
-    "store_address": (StringType(), pa.string(), True), # text
-    "store_address_line1": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line2": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line3": (StringType(), pa.string(), True), # text, NOT NULL
-    "area_code": (StringType(), pa.string(), True), # text
-    "login_user": (StringType(), pa.string(), True),
-    "store_contact_person": (StringType(), pa.string(), True),
 
-    # Boolean/Tinyint
-    "isactive": (IntegerType(), pa.int32(), True),
+    # 🔑 Primary / Identifiers
+    "order_id": (StringType(), pa.string(), True),
+    "sale_order_id": (StringType(), pa.string(), True),
 
-    # Nullable Strings/Varchar
+    # 🧾 Invoice
+    "invoice_no": (StringType(), pa.string(), False),
+    "invoice_date": (TimestampType(), pa.timestamp("ms"), False),
+    "invoice_reff_no": (StringType(), pa.string(), False),
+    "invoice_reff_date": (StringType(), pa.string(), False),
+
+    # 📦 Channel / Order state
+    "channel": (StringType(), pa.string(), False),
+    "channel_medium": (StringType(), pa.string(), False),
+    "order_status": (StringType(), pa.string(), False),
+    "order_inv_status": (StringType(), pa.string(), False),
+    "order_type": (StringType(), pa.string(), False),
+
+    # 🚚 Delivery / Billing
+    "delivery_from": (StringType(), pa.string(), False),
+    "delivery_from_branchcode": (StringType(), pa.string(), False),
+    "billing_branch_code": (StringType(), pa.string(), False),
+
+    # 👤 Customer
+    "cust_id": (StringType(), pa.string(), False),
+    "cust_primary_email": (StringType(), pa.string(), False),
+    "cust_primary_contact": (StringType(), pa.string(), False),
+    "cust_mobile": (StringType(), pa.string(), False),
+
+    # 📍 Addresses (JSON → String)
+    "customer_address": (StringType(), pa.string(), False),
+    "shipment_address": (StringType(), pa.string(), False),
+    "billing_address": (StringType(), pa.string(), False),
+
+    # 🌍 Geo
+    "latitude": (DoubleType(), pa.float64(), False),
+    "longitude": (DoubleType(), pa.float64(), False),
+
+    # 📦 Line items & financials (ALL JSON)
+    "lineitems": (StringType(), pa.string(), False),
+    "lineitem_status": (StringType(), pa.string(), False),
+    "payment_details": (StringType(), pa.string(), False),
+    "refund_details": (StringType(), pa.string(), False),
+    "voucher_details": (StringType(), pa.string(), False),
+    "employee_sale_details": (StringType(), pa.string(), False),
+    "order_summary_details": (StringType(), pa.string(), False),
+    "other_details": (StringType(), pa.string(), False),
+    "service_details": (StringType(), pa.string(), False),
+    "multi_invoice": (StringType(), pa.string(), False),
+    "order_tag": (StringType(), pa.string(), False),
+
+    # 📄 Documents
+    "invoice_pdf": (StringType(), pa.string(), False),
+
+    # 🕒 Audit
+    "created_at": (TimestampType(), pa.timestamp("ms"), False),
+    "updated_at": (TimestampType(), pa.timestamp("ms"), False),
     "created_by": (StringType(), pa.string(), False),
     "updated_by": (StringType(), pa.string(), False),
-
-    # Timestamp fields
-    "created_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
-    "updated_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
 }
 
 
-def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
+def schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     """
-    Generate Iceberg and Arrow schemas for hub_masters table.
+    Generate Iceberg and Arrow schemas for installation_services table.
     
     Args:
         record: Sample record dictionary
@@ -117,7 +175,7 @@ def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     return iceberg_schema, arrow_schema
 
 
-def hub_masters_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Clean and normalize row data for hub_masters schema compliance.
     

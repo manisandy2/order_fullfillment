@@ -12,50 +12,43 @@ from pyiceberg.schema import Schema
 logger = logging.getLogger(__name__)
 
 # Module-level constants
-TIMESTAMP_FIELDS = ["created_at", "updated_at"]
-BOOLEAN_FIELDS = ["isactive"]
+TIMESTAMP_FIELDS = ['createdAt', 'updatedAt', 'created_at', 'updated_at']
 
-REQUIRED_FIELDS = ["id", "store_name", "state", "district", "store_mobile_no", "store_mailid", 
-                   "store_shortcode", "pincode", "customer_code", "store_address", 
-                   "area_code", "login_user", "created_at", "updated_at", "isactive", 
-                   "store_contact_person"]
+BOOLEAN_FIELDS = []
+INTEGER_FIELDS = ['items_total']
+
+VARCHAR_FIELDS = ['t_manifest_id', 't_shipment_id', 'time_sorted_id', 'manifest_type', 'created_by', 'updated_by']
+
+REQUIRED_FIELDS = ['t_manifest_id', 't_shipment_id', 'time_sorted_id', 'items_total', 'createdAt', 'created_at']
+
+
 
 # Field type overrides based on MySQL schema
 FIELD_OVERRIDES = {
-    # Keys / Required
-    "id": (StringType(), pa.string(), True),
-    "store_name": (StringType(), pa.string(), True),
-    "state": (StringType(), pa.string(), True),
-    "district": (StringType(), pa.string(), True),
-    "store_mobile_no": (StringType(), pa.string(), True),
-    "store_mailid": (StringType(), pa.string(), True),
-    "store_shortcode": (StringType(), pa.string(), True),
-    "pincode": (StringType(), pa.string(), True), # text in MySQL
-    "customer_code": (StringType(), pa.string(), True), # text
-    "store_address": (StringType(), pa.string(), True), # text
-    "store_address_line1": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line2": (StringType(), pa.string(), True), # text, NOT NULL
-    "store_address_line3": (StringType(), pa.string(), True), # text, NOT NULL
-    "area_code": (StringType(), pa.string(), True), # text
-    "login_user": (StringType(), pa.string(), True),
-    "store_contact_person": (StringType(), pa.string(), True),
+    # Primary / required identifiers
+    "t_manifest_id": (StringType(), pa.string(), True),     # PRI
+    "t_shipment_id": (StringType(), pa.string(), True),     # NOT NULL
+    "time_sorted_id": (StringType(), pa.string(), True),    # NOT NULL
 
-    # Boolean/Tinyint
-    "isactive": (IntegerType(), pa.int32(), True),
-
-    # Nullable Strings/Varchar
+    # Nullable string fields
+    "manifest_type": (StringType(), pa.string(), False),
     "created_by": (StringType(), pa.string(), False),
     "updated_by": (StringType(), pa.string(), False),
 
-    # Timestamp fields
-    "created_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
-    "updated_at": (TimestampType(), pa.timestamp('ms'), True), # NOT NULL
+    # Integer fields
+    "items_total": (IntegerType(), pa.int32(), True),
+
+    # Timestamp fields (keep both naming styles)
+    "createdAt": (TimestampType(), pa.timestamp("ms"), True),
+    "updatedAt": (TimestampType(), pa.timestamp("ms"), False),
+    "created_at": (TimestampType(), pa.timestamp("ms"), True),
+    "updated_at": (TimestampType(), pa.timestamp("ms"), False),
 }
 
 
-def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
+def intransit_manifests_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     """
-    Generate Iceberg and Arrow schemas for hub_masters table.
+    Generate Iceberg and Arrow schemas for installation_services table.
     
     Args:
         record: Sample record dictionary
@@ -117,7 +110,7 @@ def hub_masters_schema(record: Dict[str, Any]) -> Tuple[Schema, pa.Schema]:
     return iceberg_schema, arrow_schema
 
 
-def hub_masters_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def intransit_manifests_clean_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Clean and normalize row data for hub_masters schema compliance.
     

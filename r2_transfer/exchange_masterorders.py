@@ -5,18 +5,19 @@ import logging
 from datetime import datetime
 
 # ------------------ CONFIGURATION ------------------
+url_prefix = "pickup_deliveries"
 
-API_URL = "http://127.0.0.1:8000/externalcalllogs/ingest/mysql-range"  # FastAPI endpoint
+API_URL = f"http://127.0.0.1:8000/{url_prefix}/ingest/mysql-range"  # FastAPI endpoint
 
-BATCH_SIZE = 100
+BATCH_SIZE = 50000
 START_ROWS = 0
-TOTAL_ROWS = 1502
+TOTAL_ROWS = 2177213
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2
 
-SUCCESS_LOG_FILE = "logs/success_externalcalllogs-live.log"
-FAILED_LOG_FILE = "logs/error_externalcalllogs-live.log"
+SUCCESS_LOG_FILE = f"logs/success_{url_prefix}-live.log"
+FAILED_LOG_FILE = f"logs/error_{url_prefix}-live.log"
 
 # ------------------ LOGGING SETUP ------------------
 
