@@ -5,13 +5,13 @@ import logging
 from datetime import datetime
 
 # ------------------ CONFIGURATION ------------------
-url_prefix = "pickup_deliveries"
+url_prefix = "roles"
 
 API_URL = f"http://127.0.0.1:8000/{url_prefix}/ingest/mysql-range"  # FastAPI endpoint
 
-BATCH_SIZE = 50000
+BATCH_SIZE = 20
 START_ROWS = 0
-TOTAL_ROWS = 2177213
+TOTAL_ROWS = 20
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2

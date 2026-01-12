@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Any
 import pyarrow as pa
 from pyiceberg.types import (
     BooleanType, LongType, DoubleType, DateType, IntegerType,
-    TimestampType, StringType, NestedField, FloatType
+    TimestampType, StringType, NestedField, FloatType, BinaryType
 )
 from datetime import datetime, date
 from pyiceberg.schema import Schema

@@ -1279,7 +1279,7 @@ def create(
         table_name=table_name,
         schema=exchange_mo_schema,
         partition_spec=partition_spec,
-        sort_order="id ASC"
+        sort_order="order_id ASC"
     )
 
 @router.post("/return_masterorders_w/create")
@@ -1306,7 +1306,7 @@ def create(
         table_name=table_name,
         schema=exchange_mo_schema,
         partition_spec=partition_spec,
-        sort_order="id ASC"
+        sort_order="order_id ASC"
     )
 
 @router.post("/return_orderlineitems/create")
