@@ -5,8 +5,8 @@ from r2_transfer.exchange_masterorders import url_prefix
 
 # from .schedulers_wUtility import *
 from .Utility import schema,clean_rows
-from .service_master_hUtility import (REQUIRED_FIELDS,FIELD_OVERRIDES,
-                                       VARCHAR_FIELDS,TIMESTAMP_FIELDS,BOOLEAN_FIELDS,DATE_FIELDS)
+from .shipmentsUtility import (REQUIRED_FIELDS,FIELD_OVERRIDES,
+                                       VARCHAR_FIELDS,TIMESTAMP_FIELDS,BOOLEAN_FIELDS)
 from core.catalog_client import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pyiceberg.catalog import NoSuchTableError
@@ -60,7 +60,7 @@ def insert_shipments_between_range(
         # print(rows[0])
 
         clean_rows(rows=rows,boolean_fields=BOOLEAN_FIELDS,timestamps_fields=TIMESTAMP_FIELDS,
-                   field_overrides=FIELD_OVERRIDES,date_fields=DATE_FIELDS)
+                   field_overrides=FIELD_OVERRIDES)
         # external_call_logs_clean_rows(rows)
 
         logger.info("Row cleaning completed")

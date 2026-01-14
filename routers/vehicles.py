@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Query, Body, HTTPException
 import time
-from core.mysql_client import MysqlCatalog
-# from .masterOrderUtility import *
-from .Utility import *
-from .bluedartZoneMastersUtility import *
+
+from r2_transfer.exchange_masterorders import url_prefix
+
+# from .schedulers_wUtility import *
+from .Utility import schema,clean_rows
+from .vehiclesUtility import (REQUIRED_FIELDS,FIELD_OVERRIDES,
+                                       VARCHAR_FIELDS,TIMESTAMP_FIELDS,BOOLEAN_FIELDS)
 from core.catalog_client import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pyiceberg.catalog import NoSuchTableError
@@ -12,22 +15,23 @@ from core.between_range import MydatabaseRange
 from fastapi import status
 from core.logger import get_logger
 
-logger = get_logger("bluedart_zone_masters-api")
+url_prefix = "vehicles"
 
-router = APIRouter(prefix="", tags=["bluedart_zone_masters"])
+logger = get_logger("vehicles")
+
+router = APIRouter(prefix=f"/{url_prefix}", tags=["roles"])
 
 
 # mysql | range | chunk_size | multithreading | arrow | append
-@router.post("/bluedart_zone_masters/ingest/mysql-range")
-def bluedart_zone_masters_between_range(
+@router.post("/ingest/mysql-range")
+def insert_vehicles_between_range(
         start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
         end_range: int = Query(100, description="End row offset for MySQL data fetch"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
-        # date_filter: str = Query("2025-12-23", description="Date for MySQL data fetch"),
 ):
     total_start = time.time()
-    namespace, table_name = "order_fulfillment", "bluedart_zone_masters"
-    dbname = "bluedart_zone_masters"
+    namespace, table_name = "order_fulfillment", f"{url_prefix}"
+    dbname = f"{url_prefix}"
 
     logger.info(
         f"START ingestion | table={namespace}.{table_name} "
@@ -39,8 +43,8 @@ def bluedart_zone_masters_between_range(
     try:
         start_time = time.time()
         # rows = mysql_creds.get_master_order(dbname, start_range, end_range,"2025-12-12")
-        rows = mysql_creds.get_bluedart_zone_masters(dbname, start_range, end_range)
-        print(f"{len(rows)} rows fetched from bluedart_zone_masters")
+        rows = mysql_creds.get_vehicles(dbname, start_range, end_range)
+        print(f"{len(rows)} rows fetched from get_vehicles")
         logger.debug(f"MySQL fetch completed in {time.time() - start_time:.2f}s")
         if not rows:
             logger.warning("No rows found for given range")
@@ -53,17 +57,19 @@ def bluedart_zone_masters_between_range(
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
 
     try:
-        clean_rows(rows,REQUIRED_FIELDS,FIELD_OVERRIDES,
-                    VARCHAR_FIELDS,TIMESTAMP_FIELDS)
-        # masterOrder_clean_rows(rows)
+        # print(rows[0])
+
+        clean_rows(rows=rows,boolean_fields=BOOLEAN_FIELDS,timestamps_fields=TIMESTAMP_FIELDS,
+                   field_overrides=FIELD_OVERRIDES)
+        # external_call_logs_clean_rows(rows)
+
         logger.info("Row cleaning completed")
     except Exception as e:
         logger.exception("Row cleaning failed")
         raise HTTPException(status_code=500, detail=f"Row cleaning error: {e}")
-    # bluedart_zone_masters_schema(rows[0])
-    # iceberg_schema, arrow_schema = masterorder_schema(rows[0])
-    iceberg_schema, arrow_schema = schema(rows[0],REQUIRED_FIELDS,FIELD_OVERRIDES
-                    )
+
+    # iceberg_schema, arrow_schema = exchange_informations_schema(rows[0])
+    iceberg_schema, arrow_schema = schema(rows[0],required_fields=REQUIRED_FIELDS,field_overrides=FIELD_OVERRIDES)
     arrow_start = time.time()
     chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
 

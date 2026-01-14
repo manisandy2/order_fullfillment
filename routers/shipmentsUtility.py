@@ -13,6 +13,7 @@ REQUIRED_FIELDS = [
     "createdAt",
 ]
 
+
 TIMESTAMP_FIELDS = [
     "created_at",
     "updated_at",
@@ -21,10 +22,65 @@ TIMESTAMP_FIELDS = [
     "ewaybilldate",
 ]
 
+
 INTEGER_FIELDS = [
     "dimension_length",
     "dimension_height",
     "dimension_width",
+]
+
+BOOLEAN_FIELDS = []
+
+VARCHAR_FIELDS = [
+    # 🔑 Identifiers
+    "shipment_id",
+    "time_sorted_id",
+
+    # 🚚 Provider / Status
+    "provider",
+    "status",
+    "fulfiled_by",
+    "branch_code",
+
+    # 🚗 Vehicle
+    "vehicle_no",
+    "vehicle_type",
+    "vehicle_image",
+    "vehicle_name",
+
+    # 🧑 Driver
+    "driver_code",
+    "driver_name",
+    "driver_image",
+    "driver_contact",
+
+    # 🧑‍🤝‍🧑 Assistants
+    "assistant_code",
+    "assistant_name",
+    "assistant_pic",
+    "assistant_contact",
+    "secondary_assistant_code",
+    "secondary_assistant_name",
+    "secondary_assistant_pic",
+    "secondary_assistant_contact",
+
+    # 📦 Tracking / Courier
+    "tracking_id",
+    "tracking_ref_suffix",
+    "tracking_url",
+    "courier_name",
+    "courier_code",
+
+    # 📐 Dimensions
+    "dimension_units",
+
+    # 🧾 Compliance
+    "permit",
+    "ewaybillno",
+
+    # 🕒 Audit (string-only audit fields)
+    "created_by",
+    "updated_by",
 ]
 
 FIELD_OVERRIDES = {
@@ -82,7 +138,7 @@ FIELD_OVERRIDES = {
     "ewaybillno": (StringType(), pa.string(), False),
     "ewaybilldate": (TimestampType(), pa.timestamp("ms"), False),
 
-    # 🕒 Audit (duplicate MySQL columns preserved)
+    # 🕒 Audit (MySQL duplicates preserved)
     "created_at": (TimestampType(), pa.timestamp("ms"), True),
     "updated_at": (TimestampType(), pa.timestamp("ms"), False),
     "createdAt": (TimestampType(), pa.timestamp("ms"), True),
