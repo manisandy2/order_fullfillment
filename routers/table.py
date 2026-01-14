@@ -1414,7 +1414,7 @@ def create(
         table_name=table_name,
         schema=exchange_mo_schema,
         partition_spec=partition_spec,
-        sort_order="id ASC"
+        sort_order="job_id ASC"
     )
 
 @router.post("/schedulers_w/create")
@@ -1441,7 +1441,7 @@ def create(
         table_name=table_name,
         schema=exchange_mo_schema,
         partition_spec=partition_spec,
-        sort_order="id ASC"
+        sort_order="job_id ASC"
     )
 
 @router.post("/service_history_c/create")
@@ -1470,6 +1470,34 @@ def create(
         partition_spec=partition_spec,
         sort_order="id ASC"
     )
+
+@router.post("/service_history_h/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "service_history_h"
+
+    exchange_mo_schema = Schema(fields=service_history_h)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=exchange_mo_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=exchange_mo_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
 @router.post("/service_master_c/create")
 def create(
         # namespace: str = Query("pos_transactions"),
@@ -1494,7 +1522,7 @@ def create(
         table_name=table_name,
         schema=exchange_mo_schema,
         partition_spec=partition_spec,
-        sort_order="id ASC"
+        sort_order="service_id ASC"
     )
 
 @router.post("/service_master_h/create")
@@ -1521,7 +1549,7 @@ def create(
         table_name=table_name,
         schema=exchange_mo_schema,
         partition_spec=partition_spec,
-        sort_order="id ASC"
+        sort_order="service_id ASC"
     )
 @router.post("/shipments/create")
 def create(
@@ -1547,7 +1575,7 @@ def create(
         table_name=table_name,
         schema=exchange_mo_schema,
         partition_spec=partition_spec,
-        sort_order="id ASC"
+        sort_order="shipment_id ASC"
     )
 @router.post("/uploadloggers/create")
 def create(
@@ -1626,6 +1654,49 @@ def create(
         schema=exchange_mo_schema,
         partition_spec=partition_spec,
         sort_order="id ASC"
+    )
+
+from schema_create.schema_registry import SCHEMA_REGISTRY,TABLE_CONFIG
+DEFAULT_NAMESPACE = "order_fulfillment"
+# DEFAULT_SORT = "id ASC"
+
+@router.post("/{table_name}/create")
+def create_table(
+        table_name: str
+):
+    # 1️⃣ Validate schema
+    if table_name not in SCHEMA_REGISTRY:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Schema not registered for table: {table_name}"
+        )
+
+    # 2️⃣ Load schema
+    iceberg_schema = Schema(fields=SCHEMA_REGISTRY[table_name])
+
+    # 3️⃣ Partition on created_at (Year)
+    if not iceberg_schema.find_field(TABLE_CONFIG.get[table_name]['sort']):
+        raise HTTPException(
+            status_code=400,
+            detail="created_at field required for partitioning"
+        )
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=iceberg_schema.find_field(TABLE_CONFIG.get[table_name]['partition_field_name']).field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        )
+    )
+
+    # 4️⃣ Create table
+    return _create_iceberg_table(
+        namespace=DEFAULT_NAMESPACE,
+        table_name=table_name,
+        schema=iceberg_schema,
+        partition_spec=partition_spec,
+        sort_order=TABLE_CONFIG.get[table_name]['sort'],
     )
 
 

@@ -37,3 +37,4 @@
 {"name":"courier_code","type":"text","nullable":true,"key":"","default":null,"extra":""}
 {"name":"ewaybillno","type":"varchar(100)","nullable":true,"key":"","default":null,"extra":""}
 {"name":"ewaybilldate","type":"timestamp","nullable":true,"key":"","default":"CURRENT_TIMESTAMP","extra":""}
+{"name":"tracking_ref_suffix","type":"varchar(50)","nullable":true,"key":"","default":null,"extra":""}

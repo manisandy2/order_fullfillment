@@ -1,29 +1,40 @@
-from fastapi import FastAPI, APIRouter, Query, HTTPException
+from fastapi import FastAPI,Body
 from pyiceberg.catalog import load_catalog
 from pyiceberg.schema import Schema, NestedField
 from pyiceberg.types import StringType, LongType, DateType,TimestampType
 import logging
 from pyiceberg.exceptions import NamespaceAlreadyExistsError, NoSuchTableError, ValidationError
 # from sqlalchemy.sql.sqltypes import NullType
-
+from typing import Annotated
 from core.catalog_client import get_catalog_client
 from fastapi import APIRouter,Query,HTTPException
-
+import pyarrow as pa
+import pandas as pd
+from .table_utility import TABLE_LIST
+from pydantic import BaseModel
 app = FastAPI()
 router = APIRouter(prefix="", tags=["Schema"])
 logger = logging.getLogger(__name__)
 
 
+class ColumnDef(BaseModel):
+    name:str
+    type:str
+    required:bool = False
+
+
 @router.get("/Schema/list")
 def list_schema(
-        namespace: str = Query(default="pos_transactions01",description="Namespace"),
-        table_name: str = Query(default="transaction01",description="Table name"),
+        namespace: str = Query(..., example="order_fulfillment"),
+        table_name: Annotated[
+            str,
+            Query(
+                description="Select Iceberg table",
+                enum=TABLE_LIST
+            )
+        ] = "masterorders",
 
 ):
-    # namespace, table_name = "pos_transactions01", "transaction_phone_in_con_sum"
-    # namespace, table_name = "pos_transactions01", "transaction01"
-    # namespace, table_name = "pos_transactions01", "transaction_with_in"
-    # namespace, table_name = "pos_transactions01", "transaction_with_out"
     try:
         catalog = get_catalog_client()
         table = catalog.load_table(f"{namespace}.{table_name}")
@@ -34,9 +45,10 @@ def list_schema(
 
 @router.post("/Schema/create")
 def create_table(
-    namespace: str = Query(default="pos_transactions01",description="Namespace"),
+    namespace: str = Query(..., example="order_fulfillment"),
     table_name: str = Query(default="transaction01",description="Table name"),
-    columns: list = Query(..., description="List of columns as [{'name':'col1','type':'string','required':True}, ...]")
+    # columns: list = Query(..., description="List of columns as [{'name':'col1','type':'string','required':True}, ...]")
+    columns: list[ColumnDef] = Body(...)
 ):
     try:
         catalog = get_catalog_client()
@@ -136,7 +148,7 @@ def create_table(
 
 @router.put("/Schema/update")
 def update_schema(
-    namespace: str = Query(default="pos_transactions01",description="Namespace"),
+    namespace: str = Query(..., example="order_fulfillment"),
     table_name: str = Query(default="transaction01",description="Table name"),
     column_name: str = Query(...),
     new_type: str = Query(..., description="New type: string, long, date,datetime")
@@ -192,10 +204,9 @@ def update_schema(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-import pyarrow as pa
-import pandas as pd
 
-@router.post("/schema/copy-column")
+
+@router.post("/schema/add-derived-column")
 def copy_column_with_schema(
     namespace: str = Query(...),
     table_name: str = Query(...),
@@ -287,7 +298,10 @@ def copy_column_with_schema(
     }
 
 @router.delete("/Schema/delete")
-def delete_table(namespace: str = Query(...), table_name: str = Query(...)):
+def delete_table(
+        namespace: str = Query(..., example="order_fulfillment"),
+        table_name: str = Query(...)
+):
     try:
         catalog = get_catalog_client()
         catalog.drop_table(f"{namespace}.{table_name}")

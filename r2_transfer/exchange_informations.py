@@ -6,11 +6,11 @@ from datetime import datetime
 
 # ------------------ CONFIGURATION ------------------
 
-API_URL = "http://127.0.0.1:8000/exchange_informations/ingest/mysql-range"  # FastAPI endpoint
+API_URL = "http://127.0.0.1:8000/roles/ingest/mysql-range"  # FastAPI endpoint
 
-BATCH_SIZE = 10
+BATCH_SIZE = 20
 START_ROWS = 0
-TOTAL_ROWS = 53
+TOTAL_ROWS = 20
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2

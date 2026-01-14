@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 
 # ------------------ CONFIGURATION ------------------
-url_prefix = "roles"
+url_prefix = "scheduler_retention_log"
 
 API_URL = f"http://127.0.0.1:8000/{url_prefix}/ingest/mysql-range"  # FastAPI endpoint
 

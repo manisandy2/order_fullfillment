@@ -11,7 +11,10 @@ TABLE_LIST = [
     "bluedart_zone_masters",
     "courier_masters",
     "drivers",
-    "exchange_informations"
+    "exchange_informations",
+    "schedulers_w",
+    "service_history_c",
+    "service_history_h",
 ]
 
 

@@ -8,6 +8,11 @@ import pyarrow as pa
 from pyiceberg.schema import Schema
 from .table_utility import TABLE_LIST
 from typing import Annotated
+import logging
+from datetime import datetime
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="", tags=["column"])
 
