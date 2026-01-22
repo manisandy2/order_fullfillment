@@ -501,8 +501,8 @@ from pathlib import Path
 from typing import Optional
 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/pickup-delivery-w-items-date-range/insert-multi-with-mysql")
-START_DATE = os.getenv("START_DATE", "2026-01-01T07:23:00")
-END_DATE = os.getenv("END_DATE", "2026-01-04T23:59:59")
+START_DATE = os.getenv("START_DATE", "2026-01-20T00:00:00")
+END_DATE = os.getenv("END_DATE", "2026-01-21T23:59:59")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "10000"))
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
 SLEEP_BETWEEN_BATCHES = int(os.getenv("SLEEP_BETWEEN_BATCHES", "2"))

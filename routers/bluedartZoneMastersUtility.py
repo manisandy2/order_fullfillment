@@ -16,6 +16,7 @@ VARCHAR_FIELDS = [
     "cpincode", "cpindesc", "city", "bdsc", "state", 
     "created_by", "updated_by", "cscrcd"
 ]
+BOOLEAN_FIELDS = []
 TEXT_FIELDS = ["carea", "cecomzn"]
 TIMESTAMP_FIELDS = ["created_at", "updated_at"]
 REQUIRED_FIELDS = ["id"]

@@ -53,8 +53,15 @@ def bluedart_zone_masters_between_range(
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
 
     try:
-        clean_rows(rows,REQUIRED_FIELDS,FIELD_OVERRIDES,
-                    VARCHAR_FIELDS,TIMESTAMP_FIELDS)
+        # clean_rows(rows,REQUIRED_FIELDS,FIELD_OVERRIDES,
+        #             VARCHAR_FIELDS,TIMESTAMP_FIELDS)
+        clean_rows(
+            rows=rows,
+            boolean_fields=BOOLEAN_FIELDS,
+            timestamps_fields=TIMESTAMP_FIELDS,
+
+            field_overrides=FIELD_OVERRIDES,
+        )
         # masterOrder_clean_rows(rows)
         logger.info("Row cleaning completed")
     except Exception as e:

@@ -5,13 +5,14 @@ import logging
 
 
 # ------------------ CONFIGURATION ------------------
-url_prefix = "vehicles"
+url_prefix = "masterorders"
 
+# API_URL = f"http://127.0.0.1:8000/{url_prefix}/ingest/mysql-range"  # FastAPI endpoint
 API_URL = f"http://127.0.0.1:8000/{url_prefix}/ingest/mysql-range"  # FastAPI endpoint
 
-BATCH_SIZE = 31
+BATCH_SIZE = 153954
 START_ROWS = 0
-TOTAL_ROWS = 31
+TOTAL_ROWS = 153954
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2

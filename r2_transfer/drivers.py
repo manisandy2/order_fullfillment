@@ -8,9 +8,9 @@ import logging
 
 API_URL = "http://127.0.0.1:8000/drivers/ingest/mysql-range"  # FastAPI endpoint
 
-BATCH_SIZE = 10
+BATCH_SIZE = 3705
 START_ROWS = 0
-TOTAL_ROWS = 25
+TOTAL_ROWS = 3705
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2

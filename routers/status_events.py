@@ -271,16 +271,15 @@ def multi_within_mysql_date_range(
 
         print("mysql fetch time", time.time() - start_time)
 
-        if not rows:
-            logger.warning("No rows found for given range")
-            raise HTTPException(status_code=400, detail="No data found in the given range.")
-
-        logger.info(f"MySQL fetch success | rows={len(rows)}")
-
-
     except Exception as e:
         logger.exception("MySQL fetch failed")
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
+
+    if not rows:
+        logger.warning("No rows found for given range")
+        raise HTTPException(status_code=400, detail="No data found in the given range.")
+
+    logger.info(f"MySQL fetch success | rows={len(rows)}")
 
     try:
         statusEvent_clean_rows(rows)

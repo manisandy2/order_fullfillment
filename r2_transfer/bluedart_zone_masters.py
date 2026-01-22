@@ -8,7 +8,7 @@ from datetime import datetime
 
 API_URL = "http://127.0.0.1:8000/bluedart_zone_masters/ingest/mysql-range"  # FastAPI endpoint
 
-BATCH_SIZE = 1000
+BATCH_SIZE = 11350
 START_ROWS = 0
 TOTAL_ROWS = 11350
 

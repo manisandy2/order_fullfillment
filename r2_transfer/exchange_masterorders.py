@@ -5,13 +5,13 @@ import logging
 from datetime import datetime
 
 # ------------------ CONFIGURATION ------------------
-url_prefix = "scheduler_retention_log"
+url_prefix = "exchange_orderlineitems"
 
 API_URL = f"http://127.0.0.1:8000/{url_prefix}/ingest/mysql-range"  # FastAPI endpoint
 
-BATCH_SIZE = 20
+BATCH_SIZE = 53
 START_ROWS = 0
-TOTAL_ROWS = 20
+TOTAL_ROWS = 53
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2

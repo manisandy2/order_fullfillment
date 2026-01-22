@@ -69,30 +69,164 @@ def schema(record: Dict[str, Any],
     return iceberg_schema, arrow_schema
 
 
+# def clean_rows(
+#         rows: List[Dict[str, Any]],
+#         boolean_fields: Optional[List[str]] = None,
+#         timestamps_fields:Optional[List[str]] = None,
+#         date_fields: Optional[List[str]] = None,
+#         field_overrides: Optional[Dict[str, tuple]] = None
+#     ) -> List[Dict[str, Any]]:
+#     """
+#     Clean and normalize row data for hub_masters schema compliance.
+#
+#     Args:
+#         rows: List of row dictionaries.
+#         boolean_fields: List of field names that should be normalized to boolean values.
+#         timestamps_fields: List of field names that should be parsed/normalized as timestamps.
+#         field_overrides: Mapping of field names to override tuples used to adjust values during cleaning.
+#
+#     Returns:
+#         Cleaned list of row dictionaries.
+#     """
+#     boolean_fields = boolean_fields or []
+#     timestamps_fields = timestamps_fields or []
+#     date_fields = date_fields or []
+#     field_overrides = field_overrides or {}
+#
+#     dt_formats = [
+#         "%Y-%m-%d %H:%M:%S",
+#         "%Y-%m-%dT%H:%M:%S",
+#         "%d/%m/%Y %H:%M:%S",
+#         "%Y-%m-%d",
+#     ]
+#
+#     date_formats = [
+#         "%Y-%m-%d",
+#         "%d/%m/%Y",
+#     ]
+#
+#     for row in rows:
+#         # 1. Boolean Fields
+#         for f in boolean_fields:
+#             val = row.get(f)
+#             if val is None:
+#                 logger.warning(f"Required boolean field {f} is None, defaulting to False")
+#                 row[f] = False
+#             elif isinstance(val, bool):
+#                 row[f] = val
+#             elif isinstance(val, int):
+#                 row[f] = bool(val)
+#             elif isinstance(val, str):
+#                 row[f] = val.lower() in ("1", "true", "yes", "on")
+#             else:
+#                 row[f] = False
+#
+#         # 2. Timestamp Fields
+#         for f in timestamps_fields:
+#             val = row.get(f)
+#
+#             if val is None or val == "":
+#                 logger.info(f"Required timestamp {f} is None, using current timestamp")
+#                 row[f] = datetime.now()
+#                 continue
+#
+#             if isinstance(val, datetime):
+#                 continue
+#
+#             # Try multiple formats
+#             parsed = None
+#             for fmt in dt_formats:
+#                 try:
+#                     parsed = datetime.strptime(val, fmt)
+#                     break
+#                 except (ValueError, TypeError):
+#                     pass
+#
+#             if parsed is None:
+#                 logger.warning(f"Failed to parse timestamp {f}: {val}, using current timestamp")
+#                 row[f] = datetime.now()
+#             else:
+#                 row[f] = parsed
+#
+#         # 3. Date Fields (date only)
+#         for f in date_fields:
+#             val = row.get(f)
+#
+#             if val is None or val == "":
+#                 logger.info(f"Date field {f} is None, defaulting to today")
+#                 row[f] = date.today()
+#                 continue
+#
+#             if isinstance(val, date) and not isinstance(val, datetime):
+#                 continue
+#
+#             parsed = None
+#             for fmt in date_formats:
+#                 try:
+#                     parsed = datetime.strptime(str(val), fmt).date()
+#                     break
+#                 except (ValueError, TypeError):
+#                     pass
+#
+#             row[f] = parsed if parsed else date.today()
+#
+#         # 4. String Fields (Everything else)
+#         for key, val in row.items():
+#             if key not in boolean_fields + timestamps_fields:
+#                 # Check if this field override exists and is required
+#                 if key in field_overrides:
+#                     _, _, is_required = field_overrides[key]
+#                     if val is None:
+#                         if is_required:
+#                             logger.warning(f"Required string field {key} is None, defaulting to empty string")
+#                             row[key] = ""
+#                         else:
+#                             row[key] = None
+#                     else:
+#                         row[key] = str(val)
+#                 else:
+#                     # Generic handling for non-overridden fields
+#                     row[key] = str(val) if val is not None else None
+#
+#     return rows
+
 def clean_rows(
-        rows: List[Dict[str, Any]],
-        boolean_fields: Optional[List[str]] = None,
-        timestamps_fields:Optional[List[str]] = None,
-        date_fields: Optional[List[str]] = None,
-        field_overrides: Optional[Dict[str, tuple]] = None
-    ) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]],
+    boolean_fields: Optional[List[str]] = None,
+    timestamps_fields: Optional[List[str]] = None,
+    date_fields: Optional[List[str]] = None,
+    field_overrides: Optional[Dict[str, tuple]] = None,
+) -> List[Dict[str, Any]]:
     """
-    Clean and normalize row data for hub_masters schema compliance.
+    Clean and normalize row data for schema compliance
+    (MySQL → Arrow → Iceberg safe).
 
     Args:
-        rows: List of row dictionaries.
-        boolean_fields: List of field names that should be normalized to boolean values.
-        timestamps_fields: List of field names that should be parsed/normalized as timestamps.
-        field_overrides: Mapping of field names to override tuples used to adjust values during cleaning.
+        rows: List of row dictionaries
+        boolean_fields: Columns treated as booleans
+        timestamps_fields: Columns treated as datetime
+        date_fields: Columns treated as date
+        field_overrides: {field: (type, default, is_required)}
 
     Returns:
-        Cleaned list of row dictionaries.
+        Cleaned rows
     """
-    boolean_fields = boolean_fields or []
-    timestamps_fields = timestamps_fields or []
-    date_fields = date_fields or []
+
+    # ----------------------------
+    # Defensive initialization
+    # ----------------------------
+    boolean_fields = set(boolean_fields or [])
+    timestamps_fields = set(timestamps_fields or [])
+    date_fields = set(date_fields or [])
     field_overrides = field_overrides or {}
 
+    assert isinstance(field_overrides, dict), "field_overrides must be dict"
+
+    protected_fields = boolean_fields | timestamps_fields | date_fields
+
+    # ----------------------------
+    # Supported formats
+    # ----------------------------
     dt_formats = [
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%dT%H:%M:%S",
@@ -105,55 +239,59 @@ def clean_rows(
         "%d/%m/%Y",
     ]
 
+    # ----------------------------
+    # Row processing
+    # ----------------------------
     for row in rows:
-        # 1. Boolean Fields
+
+        # 1️⃣ Boolean fields
         for f in boolean_fields:
             val = row.get(f)
+
             if val is None:
-                logger.warning(f"Required boolean field {f} is None, defaulting to False")
+                logger.warning(f"{f} is None → False")
                 row[f] = False
             elif isinstance(val, bool):
                 row[f] = val
             elif isinstance(val, int):
                 row[f] = bool(val)
             elif isinstance(val, str):
-                row[f] = val.lower() in ("1", "true", "yes", "on")
+                row[f] = val.strip().lower() in {"1", "true", "yes", "on"}
             else:
                 row[f] = False
 
-        # 2. Timestamp Fields
+        # 2️⃣ Timestamp fields
         for f in timestamps_fields:
             val = row.get(f)
 
-            if val is None or val == "":
-                logger.info(f"Required timestamp {f} is None, using current timestamp")
+            if val in (None, ""):
+                logger.info(f"{f} missing → datetime.now()")
                 row[f] = datetime.now()
                 continue
 
             if isinstance(val, datetime):
                 continue
 
-            # Try multiple formats
             parsed = None
             for fmt in dt_formats:
                 try:
-                    parsed = datetime.strptime(val, fmt)
+                    parsed = datetime.strptime(str(val), fmt)
                     break
                 except (ValueError, TypeError):
                     pass
 
             if parsed is None:
-                logger.warning(f"Failed to parse timestamp {f}: {val}, using current timestamp")
+                logger.warning(f"Invalid timestamp {f}: {val} → now()")
                 row[f] = datetime.now()
             else:
                 row[f] = parsed
 
-        # 3. Date Fields (date only)
+        # 3️⃣ Date fields
         for f in date_fields:
             val = row.get(f)
 
-            if val is None or val == "":
-                logger.info(f"Date field {f} is None, defaulting to today")
+            if val in (None, ""):
+                logger.info(f"{f} missing → date.today()")
                 row[f] = date.today()
                 continue
 
@@ -170,22 +308,28 @@ def clean_rows(
 
             row[f] = parsed if parsed else date.today()
 
-        # 4. String Fields (Everything else)
+        # 4️⃣ Remaining fields (strings / overrides)
         for key, val in row.items():
-            if key not in boolean_fields + timestamps_fields:
-                # Check if this field override exists and is required
-                if key in field_overrides:
+            if key in protected_fields:
+                continue
+
+            if key in field_overrides:
+                try:
                     _, _, is_required = field_overrides[key]
-                    if val is None:
-                        if is_required:
-                            logger.warning(f"Required string field {key} is None, defaulting to empty string")
-                            row[key] = ""
-                        else:
-                            row[key] = None
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid override tuple for '{key}', expected (_, _, is_required)"
+                    )
+
+                if val is None:
+                    if is_required:
+                        logger.warning(f"{key} is required → ''")
+                        row[key] = ""
                     else:
-                        row[key] = str(val)
+                        row[key] = None
                 else:
-                    # Generic handling for non-overridden fields
-                    row[key] = str(val) if val is not None else None
+                    row[key] = str(val)
+            else:
+                row[key] = str(val) if val is not None else None
 
     return rows

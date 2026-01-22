@@ -258,15 +258,17 @@ def multi_within_mysql_date_range(
         rows = mysql_creds.get_pickup_delivery_items_date_range(dbname, start_dt, end_dt)
         print("mysql fetch time:", time.time() - mysql_start)
 
-        if not rows:
-            logger.warning("No rows found for given range")
-            raise HTTPException(status_code=400, detail="No data found in the given range.")
-
-        logger.info(f"MySQL fetch success | rows={len(rows)}")
-
     except Exception as e:
         logger.exception("MySQL fetch failed")
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
+
+    if not rows:
+        logger.warning("No rows found for given range")
+        raise HTTPException(status_code=400, detail="No data found in the given range.")
+
+    logger.info(f"MySQL fetch success | rows={len(rows)}")
+
+
 
     try:
         pickup_delivery_items_clean_rows(rows)

@@ -8,9 +8,9 @@ from datetime import datetime
 
 API_URL = "http://127.0.0.1:8000/courier_masters/ingest/mysql-range"  # FastAPI endpoint
 
-BATCH_SIZE = 10
+BATCH_SIZE = 7
 START_ROWS = 0
-TOTAL_ROWS = 35
+TOTAL_ROWS = 7
 
 MAX_RETRIES = 3
 SLEEP_BETWEEN_BATCHES = 2

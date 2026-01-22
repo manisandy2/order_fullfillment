@@ -40,6 +40,7 @@ from routers import (
     shipments,
     users,
     vehicles,
+    job,
     column,
     schema,
 )
@@ -86,6 +87,7 @@ all_routers = [
     shipments.router,
     users.router,
     vehicles.router,
+    job.router,
     filters.router,
     column.router,
     schema.router,
