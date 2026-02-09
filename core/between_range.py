@@ -63,6 +63,9 @@ class MydatabaseRange:
     def get_drivers(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, drivers_columns, start, end, "id")
 
+    def get_drivers_dob_error(self, table_name: str, start: int, end: int) -> list:
+        return self._fetch_rows(table_name, drivers_dob_error_columns, start, end, "id")
+
     # exchange_informations
     def get_exchange_informations(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, exchange_informations_columns, start, end, "order_id")
@@ -103,10 +106,10 @@ class MydatabaseRange:
     def get_manifests(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, manifests_columns, start, end, "time_sorted_id")
 
-    def get_master_order(self, table_name: str, start: int, end: int) -> list:
+    def get_master_orders(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, masterorder_columns, start, end, "order_id")
 
-    def get_master_order_w(self, table_name: str, start: int, end: int) -> list:
+    def get_master_orders_w(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, masterorder_columns, start, end, "order_id")
 
     def get_pick_lists(self, table_name: str, start: int, end: int) -> list:
@@ -114,6 +117,13 @@ class MydatabaseRange:
 
     def get_pickup_deliveries(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, pickup_deliveries_columns, start, end, "pickup_delivery_req_id")
+
+    def get_pickup_delivery_items(self, table_name: str, start: int, end: int) -> list:
+        return self._fetch_rows(table_name, pickup_delivery_items_columns, start, end, "pickup_delivery_req_item_id")
+
+    def get_pickup_delivery_items_w(self, table_name: str, start: int, end: int) -> list:
+        return self._fetch_rows(table_name, pickup_delivery_items_w_columns, start, end, "pickup_delivery_req_item_id")
+
 
     def get_reason_messages(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, reason_messages_columns, start, end, "id")
@@ -153,6 +163,9 @@ class MydatabaseRange:
 
     def get_shipments(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, shipments_columns, start, end, "shipment_id")
+
+    def get_status_events(self, table_name: str, start: int, end: int) -> list:
+        return self._fetch_rows(table_name, status_events_columns, start, end, "status_event_id")
 
     def get_uploadloggers(self, table_name: str, start: int, end: int) -> list:
         return self._fetch_rows(table_name, uploadloggers_columns, start, end, "time_sorted_id")

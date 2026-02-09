@@ -1,4 +1,5 @@
 from core.mysql_client import MysqlCatalog
+from core.between_range import MydatabaseRange
 from pyiceberg.schema import Schema
 from pyiceberg.types import *
 from fastapi import APIRouter,HTTPException,Query,Body
@@ -10,13 +11,17 @@ from core.catalog_client import get_catalog_client
 from pyiceberg.catalog import NoSuchTableError
 from core.logger import get_logger
 from .table_utility import TABLE_LIST
+from datetime import datetime
+from .Utility import schema,clean_rows
 
-logger = get_logger("Pick up Delivery Items-api")
+url_prefix = "pickup_delivery_items"
+logger = get_logger("pickup_delivery_items")
 
-router = APIRouter(prefix="", tags=["Pick up Delivery Items"])
+
+router = APIRouter(prefix="", tags=["pickup_delivery_items"])
 # pickup_delivery_items
 # multithreading | mysql | start | end | chunk_size
-@router.post("/pickup-delivery-items/insert-multi-with-mysql")
+@router.post("/pickup_delivery_items/ingest/mysql-range")
 def multi_within_mysql(
 
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
@@ -24,19 +29,20 @@ def multi_within_mysql(
     chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
-    namespace, table_name = "order_fulfillment", "pickup_delivery_items"
-    dbname = "pickup_delivery_items"
-
+    namespace, table_name = "order_fulfillment", f"{url_prefix}"
+    dbname = f"{url_prefix}"
+    # print("start pickup-delivery-items")
     logger.info(
         f"START ingestion | table={namespace}.{table_name} "
         f"range=({start_range},{end_range}) chunk_size={chunk_size}"
     )
 
-    mysql_creds = MysqlCatalog()
+    mysql_creds = MydatabaseRange()
 
     try:
         mysql_start = time.time()
-        rows = mysql_creds.get_pickup_delivery_items(dbname, start_range, end_range,"2025-12-12")
+        rows = mysql_creds.get_pickup_delivery_items(dbname, start_range, end_range)
+        print("data",len(rows))
         print("mysql fetch time:",time.time()- mysql_start)
 
         if not rows:
@@ -50,14 +56,16 @@ def multi_within_mysql(
         raise HTTPException(status_code=500, detail=f"MySQL fetch error: {str(e)}")
 
     try:
-        pickup_delivery_items_clean_rows(rows)
+        clean_rows(rows=rows,boolean_fields=BOOLEAN_FIELDS,timestamps_fields=TIMESTAMP_FIELDS,
+                   field_overrides=FIELD_OVERRIDES)
+        # pickup_delivery_items_clean_rows(rows)
         logger.info("Row cleaning completed")
     except Exception as e:
         logger.exception("Row cleaning failed")
         raise HTTPException(status_code=500, detail=f"Row cleaning error: {str(e)}")
 
-    iceberg_schema, arrow_schema = pickup_delivery_items_schema(rows[0])
-
+    # iceberg_schema, arrow_schema = pickup_delivery_items_schema(rows[0])
+    iceberg_schema, arrow_schema = schema(rows[0],required_fields=REQUIRED_FIELDS,field_overrides=FIELD_OVERRIDES)
     arrow_start = time.time()
     chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
 
@@ -226,13 +234,16 @@ def multi_within_mysql(
 @router.post("/pickup-delivery-items-date-range/insert-multi-with-mysql")
 def multi_within_mysql_date_range(
 
-        start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
-        end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
+        # start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
+        # end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "pickup_delivery_items"
     dbname = "pickup_delivery_items"
+
+    start_date = datetime.strptime("2026-02-02 00:00:00", "%Y-%m-%d %H:%M:%S")
+    end_date = datetime.strptime("2026-02-02 23:59:59", "%Y-%m-%d %H:%M:%S")
 
     if start_date > end_date:
         raise HTTPException(
@@ -271,7 +282,10 @@ def multi_within_mysql_date_range(
 
 
     try:
-        pickup_delivery_items_clean_rows(rows)
+        clean_rows(rows=rows,boolean_fields=BOOLEAN_FIELDS,timestamps_fields=TIMESTAMP_FIELDS,
+                   field_overrides=FIELD_OVERRIDES)
+        # pickup_delivery_items_clean_rows(rows)
+
         logger.info("Row cleaning completed")
     except Exception as e:
         logger.exception("Row cleaning failed")
@@ -280,8 +294,8 @@ def multi_within_mysql_date_range(
     # -------------------------------------------------
     # Step 2: Infer Iceberg + Arrow Schema
     # -------------------------------------------------
-    iceberg_schema, arrow_schema = pickup_delivery_items_schema(rows[0])
-
+    # iceberg_schema, arrow_schema = pickup_delivery_items_schema(rows[0])
+    iceberg_schema, arrow_schema = schema(rows[0], required_fields=REQUIRED_FIELDS, field_overrides=FIELD_OVERRIDES)
     # print("iceberg_schema",iceberg_schema)
     # print("arrow_schema",arrow_schema)
 

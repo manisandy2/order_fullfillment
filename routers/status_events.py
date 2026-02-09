@@ -9,24 +9,25 @@ from .status_eventsUtility import *
 from .insert_data import process_chunk
 from core.catalog_client import get_catalog_client
 from pyiceberg.catalog import NoSuchTableError
+from core.between_range import MydatabaseRange
 from core.logger import get_logger
 
+url_prefix = "status_events"
+logger = get_logger("status_events")
 
-logger = get_logger("Status-Events-w-api")
-
-router = APIRouter(prefix="", tags=["Status Events"])
+router = APIRouter(prefix=f"/{url_prefix}", tags=["sstatus_events"])
 # Status Events
 # multithreading
 
-@router.post("/status-events/insert-multi-with-mysql")
+@router.post("/ingest/mysql-range")
 def multi_within_mysql(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
     chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
-    namespace, table_name = "order_fulfillment", "status_events"
-    dbname = "status_events"
+    namespace, table_name = "order_fulfillment", f"{url_prefix}"
+    dbname = f"{url_prefix}"
 
 
     logger.info(
@@ -36,13 +37,13 @@ def multi_within_mysql(
     # -------------------------------------------------
     # Step 1: Fetch and Convert MySQL Data
     # -------------------------------------------------
-    mysql_creds = MysqlCatalog()
+    mysql_creds = MydatabaseRange()
 
 
     try:
         start_time = time.time()
-        rows = mysql_creds.get_status_events(dbname, start_range, end_range,"2025-12-23")
-
+        rows = mysql_creds.get_status_events(dbname, start_range, end_range)
+        print(f"{len(rows)} rows fetched from get_status_events")
         print("mysql fetch time", time.time() - start_time)
 
         if not rows:
@@ -59,6 +60,7 @@ def multi_within_mysql(
 
     try:
         statusEvent_clean_rows(rows)
+
         logger.info("Row cleaning completed")
     except Exception as e:
         logger.exception("Row cleaning failed")
@@ -246,13 +248,16 @@ def multi_within_mysql(
 #
 @router.post("/status-events-date-range/insert-multi-with-mysql")
 def multi_within_mysql_date_range(
-        start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
-        end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
+        # start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
+        # end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "status_events"
     dbname = "status_events"
+
+    start_date = datetime.strptime("2026-02-02 00:00:00", "%Y-%m-%d %H:%M:%S")
+    end_date = datetime.strptime("2026-02-02 23:59:59", "%Y-%m-%d %H:%M:%S")
 
     logger.info(
         f"START ingestion | table={namespace}.{table_name} "

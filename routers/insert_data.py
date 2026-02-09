@@ -71,71 +71,153 @@ s3 = boto3.client(
 # }
 
 
+# def process_chunk(chunk, arrow_schema):
+#     processed_rows = []
+#     date_formats = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y")
+#
+#     for row_idx, row in enumerate(chunk):
+#         converted_row = {}
+#         # print(f" Processing row {row_idx} -> keys: {list(row.keys())}")
+#
+#         for field in arrow_schema:
+#             val = row.get(field.name, None)
+#
+#             # Debug mismatched field
+#             if field.name not in row:
+#                 print(f"Field '{field.name}' missing in row; available keys: {list(row.keys())}")
+#
+#             try:
+#                 # --- Handle empty or None values ---
+#                 if val in ("", " ", None):
+#                     converted_row[field.name] = None
+#                     continue
+#
+#                 # --- Integer fields ---
+#                 if pa.types.is_integer(field.type):
+#                     converted_row[field.name] = int(val)
+#
+#                 # --- Float fields ---
+#                 elif pa.types.is_floating(field.type):
+#                     converted_row[field.name] = float(val)
+#
+#                 # --- Timestamp or date fields ---
+#                 elif pa.types.is_timestamp(field.type) or pa.types.is_date(field.type):
+#                     parsed_date = None
+#
+#                     if isinstance(val, (datetime, date)):
+#                         parsed_date = val
+#                     elif isinstance(val, str):
+#                         val = val.strip()
+#                         for fmt in date_formats:
+#                             try:
+#                                 parsed_date = datetime.strptime(val, fmt)
+#                                 break
+#                             except ValueError:
+#                                 continue
+#
+#                     if parsed_date:
+#                         converted_row[field.name] = (
+#                             parsed_date if isinstance(parsed_date, datetime)
+#                             else datetime.combine(parsed_date, datetime.min.time())
+#                         )
+#                     else:
+#                         print(f" Row {row_idx}: Unrecognized date in '{field.name}': {val}")
+#                         converted_row[field.name] = None
+#
+#                 # --- Default: keep as string or object ---
+#                 else:
+#                     converted_row[field.name] = val
+#
+#             except Exception as e:
+#                 print(f" Row {row_idx}, Field '{field.name}', Value: {val}, Error: {e}")
+#                 converted_row[field.name] = None
+#
+#         processed_rows.append(converted_row)
+#
+#     return pa.Table.from_pylist(processed_rows, schema=arrow_schema)
+######################################################################
+
 def process_chunk(chunk, arrow_schema):
     processed_rows = []
     date_formats = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y")
 
     for row_idx, row in enumerate(chunk):
         converted_row = {}
-        # print(f" Processing row {row_idx} -> keys: {list(row.keys())}")
 
         for field in arrow_schema:
-            val = row.get(field.name, None)
-
-            # Debug mismatched field
-            if field.name not in row:
-                print(f"Field '{field.name}' missing in row; available keys: {list(row.keys())}")
+            val = row.get(field.name)
 
             try:
-                # --- Handle empty or None values ---
+                # -------------------------
+                # NULL / EMPTY
+                # -------------------------
                 if val in ("", " ", None):
                     converted_row[field.name] = None
                     continue
 
-                # --- Integer fields ---
+                # -------------------------
+                # INTEGER
+                # -------------------------
                 if pa.types.is_integer(field.type):
                     converted_row[field.name] = int(val)
 
-                # --- Float fields ---
+                # -------------------------
+                # FLOAT
+                # -------------------------
                 elif pa.types.is_floating(field.type):
                     converted_row[field.name] = float(val)
 
-                # --- Timestamp or date fields ---
+                # -------------------------
+                # TIMESTAMP / DATE
+                # -------------------------
                 elif pa.types.is_timestamp(field.type) or pa.types.is_date(field.type):
-                    parsed_date = None
-
                     if isinstance(val, (datetime, date)):
-                        parsed_date = val
+                        converted_row[field.name] = (
+                            val if isinstance(val, datetime)
+                            else datetime.combine(val, datetime.min.time())
+                        )
                     elif isinstance(val, str):
-                        val = val.strip()
+                        parsed = None
                         for fmt in date_formats:
                             try:
-                                parsed_date = datetime.strptime(val, fmt)
+                                parsed = datetime.strptime(val.strip(), fmt)
                                 break
                             except ValueError:
                                 continue
-
-                    if parsed_date:
-                        converted_row[field.name] = (
-                            parsed_date if isinstance(parsed_date, datetime)
-                            else datetime.combine(parsed_date, datetime.min.time())
-                        )
+                        converted_row[field.name] = parsed
                     else:
-                        print(f" Row {row_idx}: Unrecognized date in '{field.name}': {val}")
                         converted_row[field.name] = None
 
-                # --- Default: keep as string or object ---
+                # -------------------------
+                # STRING (🔥 CRITICAL FIX 🔥)
+                # -------------------------
+                elif pa.types.is_string(field.type):
+                    if isinstance(val, bool):
+                        converted_row[field.name] = "true" if val else "false"
+                    else:
+                        converted_row[field.name] = str(val)
+
+                # -------------------------
+                # BOOLEAN
+                # -------------------------
+                elif pa.types.is_boolean(field.type):
+                    converted_row[field.name] = bool(val)
+
+                # -------------------------
+                # FALLBACK
+                # -------------------------
                 else:
                     converted_row[field.name] = val
 
             except Exception as e:
-                print(f" Row {row_idx}, Field '{field.name}', Value: {val}, Error: {e}")
+                print(
+                    f"Row {row_idx}, Field '{field.name}', "
+                    f"Value={val} ({type(val)}), Error={e}"
+                )
                 converted_row[field.name] = None
 
         processed_rows.append(converted_row)
 
     return pa.Table.from_pylist(processed_rows, schema=arrow_schema)
-######################################################################
-
 
 

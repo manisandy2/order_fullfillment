@@ -7,7 +7,7 @@ from typing import List
 from pyiceberg.expressions import And, EqualTo,GreaterThan,LessThan
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Annotated
-from core.db_colums import pickup_delivery_columns
+# from core.db_colums import pickup_delivery_columns
 import pyarrow.compute as pc
 from pyiceberg.expressions import AlwaysTrue
 from .table_utility import TABLE_LIST

@@ -390,7 +390,7 @@ def create(
             "status": "created",
             "table": table_identifier,
             "schema_field_count": len(pickup_delivery_items_schema.fields),
-            "partition_by": "year(pickup_delivery_items_w)"
+            "partition_by": "year(pickup_delivery_items)"
         }
 
     except TableAlreadyExistsError:
@@ -427,7 +427,7 @@ def create(
     # Step 1: Define Iceberg schema
 
     logger.info(f"Creating table: {table_identifier}")
-    pickup_delivery_items_schema = Schema(fields=Pickup_delivery_items)
+    pickup_delivery_items_schema = Schema(fields=Pickup_delivery_items_w)
 
 
     # Step 2: Define partition spec
@@ -840,6 +840,34 @@ def create(
         ),
     )
     
+    return _create_iceberg_table(
+        namespace=namespace,
+        table_name=table_name,
+        schema=drivers_schema,
+        partition_spec=partition_spec,
+        sort_order="id ASC"
+    )
+
+
+@router.post("/drivers_dob_error/create")
+def create(
+        # namespace: str = Query("pos_transactions"),
+        # table_name: str = Query(..., description="Table name"),
+):
+    namespace = "order_fulfillment"
+    table_name = "drivers_dob_error"
+
+    drivers_schema = Schema(fields=drivers_dob_error_columns)
+
+    partition_spec = PartitionSpec(
+        PartitionField(
+            source_id=drivers_schema.find_field("created_at").field_id,
+            field_id=1001,
+            transform=YearTransform(),
+            name="year",
+        ),
+    )
+
     return _create_iceberg_table(
         namespace=namespace,
         table_name=table_name,

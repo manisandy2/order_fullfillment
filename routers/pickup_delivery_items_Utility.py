@@ -1,360 +1,331 @@
 import pyarrow as pa
-from pyiceberg.types import *
-from datetime import datetime, date
-from pyiceberg.schema import Schema
-from decimal import Decimal
+from pyiceberg.types import (
+    BooleanType, LongType, DoubleType, DateType, IntegerType,
+    TimestampType, StringType, NestedField, FloatType
+)
 
+REQUIRED_FIELDS = [
 
-def pickup_delivery_items_clean_rows(rows):
+    # -----------------------------
+    # Primary / Core Identifiers
+    # -----------------------------
+    "pickup_delivery_req_item_id",
+    "pickup_delivery_req_id",
+    "order_id",
+    "sale_order_id",
 
-    # ---------------- FLOAT / DECIMAL FIELDS ----------------
-    float_fields = [
-        "latitude",
-        "longitude"
-    ]
+    # -----------------------------
+    # Dates / Timeline
+    # -----------------------------
+    "expect_delivery_pickup_dt",
 
-    # ---------------- INTEGER FIELDS ----------------
-    integer_fields = [
-        "item_qty",
-        "dimension_length",
-        "dimension_height",
-        "dimension_width",
-        "reattempt_count",
-        "delivery_charge",
-        "payment_verification",
-        "otp_verified_status",
-        "ispickup_active",
-        "oms_data_migration_status",
-        "dropship_flag",
-    ]
+    # -----------------------------
+    # Status (NOT NULL)
+    # -----------------------------
+    "internal_status",
+    "inventory_status",
+    "shipment_status",
 
-    # ---------------- TIMESTAMP / DATE FIELDS ----------------
-    timestamp_fields = [
-        "invoice_date",
-        "expect_delivery_pickup_dt",
-        "picker_added_dt",
-        "manifest_added_dt",
-        "exchange_invo_date",
-        "row_added_dt",
-        "row_updated_dt",
-        "goods_received_date",
-        "sale_invoice_date",
-        "updated_at_new",
-    ]
+    # -----------------------------
+    # Inventory / Location
+    # -----------------------------
+    "inventory_location_code",
+    "inventory_location",
 
-    # ---------------- STRING FIELDS ----------------
-    string_fields = [
-        # ---- varchar fields ----
-        "pickup_delivery_req_item_id", "pickup_delivery_req_id",
-        "order_id", "sale_order_id", "invoice_no", "invoice_reff_no",
-        "customer_status", "internal_status", "inventory_status",
-        "shipment_status", "inventory_location_code", "docking_area",
-        "docking_area_code", "type_of_order", "item_code", "item_weight",
-        "category_code", "category_name", "inventory_location",
-        "inventory_location_branchname", "inventory_location_mobileno",
-        "order_type", "order_line_item_id", "picklist_id", "picker_id",
-        "manifest_id", "shipment_id", "driver_code", "driver_name",
-        "driver_contact", "assistant_code", "assistant_name",
-        "assistant_contact", "vehicle_no", "vehicle_type", "vehicle_name",
-        "vehicle_image", "order_inv_status", "tracking_id", "item_price",
-        "item_qty_label", "item_dimension", "line_itemid",
-        "invoice_status", "exchange_invo_no", "brand", "capture_do_url",
-        "shipment_tracking_id", "secondary_assistant_code",
-        "secondary_assistant_name", "secondary_assistant_pic",
-        "secondary_assistant_contact", "pickup_label_id",
-        "collection_location_type", "collection_location_code",
-        "collection_location_branchname", "to_location_email",
-        "to_location_mobileno", "to_location_lat_long",
-        "shipment_type", "home_pickup", "row_added_by", "row_updated_by",
-        "to_location_fullname", "billing_branch_code", "selling_price",
-        "vendor_id", "sale_invoice_no", "dismantle_label", "quote_id",
-        "billed_at_branch_name", "offer_type", "delivery_type",
-        "erp_po_createdAt", "erp_po_no", "seller_order_id",
-        "seller_item_code", "seller_id", "seller_order_createdAt",
-        "seller_apob_code", "unit_price", "discount_price", "plant",
-        "seller_branch_code",
+    # -----------------------------
+    # Item details
+    # -----------------------------
+    "item_code",
+    "item_name",
+    "item_image",
+    "item_weight",
+    # "item_qty",
 
-        # ---- text fields ----
-        "invoice_reff_date", "item_name", "item_image", "driver_image",
-        "assistant_pic", "tracking_url", "permit", "courier_details",
-        "inventory_location_address", "exchange_invoice_url",
-        "collection_location_address", "to_location_address",
-        "item_serial_no", "vendor_name", "invoice_url", "courier_code",
+    # -----------------------------
+    # Order / Pick / Ship
+    # -----------------------------
+    "order_line_item_id",
+    "picklist_id",
+    "picker_id",
+    "manifest_id",
+    "shipment_id",
 
-        # ---- enum ----
-        "is_item_installable",
-    ]
+    # -----------------------------
+    # Driver
+    # -----------------------------
+    "driver_name",
 
-    # ------------------------------------------------------------
-    #               CLEANING LOGIC (unchanged)
-    # ------------------------------------------------------------
+    # -----------------------------
+    # Compliance / Ops
+    # -----------------------------
+    "permit",
 
-    from datetime import datetime
+    # -----------------------------
+    # Flags (tinyint NOT NULL)
+    # -----------------------------
+    "ispickup_active",
 
-    for row in rows:
+    # -----------------------------
+    # Destination
+    # -----------------------------
+    "to_location_pincode",
+    "to_location_lat_long",
 
-        # 1 -------- Float Fields ----------------------------------------
-        for f in float_fields:
-            val = row.get(f)
-            if isinstance(val, str):
-                try:
-                    row[f] = float(val)
-                except ValueError:
-                    row[f] = 0.0
-            elif val is None:
-                row[f] = 0.0
+    # -----------------------------
+    # Audit
+    # -----------------------------
+    "row_added_dt",
+    "row_added_by",
+    "row_updated_by",
 
-        # 2 -------- Integer Fields --------------------------------------
-        for f in integer_fields:
-            val = row.get(f)
-            if isinstance(val, str):
-                try:
-                    row[f] = int(val)
-                except ValueError:
-                    row[f] = 0
-            elif val is None:
-                row[f] = 0
+    # -----------------------------
+    # Business rule
+    # -----------------------------
+    "is_item_installable",
+]
 
-        # 3 -------- String Fields ---------------------------------------
-        for f in string_fields:
-            val = row.get(f)
-            if val is None:
-                row[f] = ""
-            else:
-                row[f] = str(val)
-        
+VARCHAR_FIELDS = [
 
-        # for f in decimal_fields:
-        #     val = row.get(f)
-        #     if val is None or val == "":
-        #         row[f] = None
-        #     else:
-        #         try:
-        #             row[f] = Decimal(str(val))
-        #         except:
-        #             row[f] = None
+    # -----------------------------
+    # IDs / Keys
+    # -----------------------------
+    "pickup_delivery_req_item_id",
+    "pickup_delivery_req_id",
+    "order_id",
+    "sale_order_id",
+    "invoice_no",
+    "invoice_reff_no",
+    "order_line_item_id",
+    "picklist_id",
+    "picker_id",
+    "manifest_id",
+    "shipment_id",
+    "driver_code",
+    "assistant_code",
+    "secondary_assistant_code",
+    "pickup_label_id",
 
-        # 4 -------- Timestamp Fields ------------------------------------
-        for f in timestamp_fields:
-            val = row.get(f)
+    # -----------------------------
+    # Status / Type fields
+    # -----------------------------
+    "customer_status",
+    "internal_status",
+    "inventory_status",
+    "shipment_status",
+    "inward_exchange_status",
+    "order_type",
+    "type_of_order",
+    "order_inv_status",
+    "invoice_status",
+    "shipment_type",
+    "home_pickup",
+    "offer_type",
+    "delivery_type",
+    "payment_status",
+    "payment_code",
 
-            if val is None or val == "":
-                row[f] = None
-                continue
+    # -----------------------------
+    # Item / Product
+    # -----------------------------
+    "item_code",
+    "item_name",
+    "item_image",
+    "item_weight",
+    "category_code",
+    "category_name",
+    "item_price",
+    "item_qty_label",
+    "item_dimension",
+    "item_serial_no",
+    "brand",
+    "selling_price",
+    "unit_price",
+    "discount_price",
+    "plant",
+    "vendor_name",
+    "vendor_id",
+    "seller_item_code",
+    "seller_id",
+    "seller_order_id",
 
-            if isinstance(val, datetime):
-                continue
+    # -----------------------------
+    # Location / Inventory
+    # -----------------------------
+    "inventory_location_code",
+    "inventory_location",
+    "inventory_location_branchname",
+    "inventory_location_mobileno",
+    "inventory_location_address",
 
-            parsed = None
-            formats = [
-                "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%dT%H:%M:%S",
-                "%d/%m/%Y %H:%M:%S",
-                "%Y-%m-%d",
-            ]
+    "collection_location_type",
+    "collection_location_code",
+    "collection_location_branchname",
+    "collection_location_address",
+    "collection_location_mobileno",
+    "collection_docking_area",
+    "collection_docking_area_code",
 
-            for fm in formats:
-                try:
-                    parsed = datetime.strptime(val, fm)
-                    break
-                except:
-                    pass
+    "to_location_email",
+    "to_location_mobileno",
+    "to_location_address",
+    "to_location_lat_long",
+    "to_location_fullname",
 
-            row[f] = parsed if parsed else None
+    "shipping_pincode",
+    "shipping_state",
 
-    return rows
+    # -----------------------------
+    # Driver / Vehicle
+    # -----------------------------
+    "driver_name",
+    "driver_image",
+    "driver_contact",
+    "assistant_name",
+    "assistant_pic",
+    "assistant_contact",
+    "secondary_assistant_name",
+    "secondary_assistant_pic",
+    "secondary_assistant_contact",
 
-def pickup_delivery_items_schema(record: dict):
-    iceberg_fields = []
-    arrow_fields = []
+    "vehicle_no",
+    "vehicle_type",
+    "vehicle_name",
+    "vehicle_image",
 
-    # --------------------------------------------------------------------
-    # ALL FIELD TYPE OVERRIDES (from MySQL schema)
-    # --------------------------------------------------------------------
-    field_overrides = {
+    # -----------------------------
+    # Courier / Tracking
+    # -----------------------------
+    "courier_name",
+    "courier_code",
+    "courier_details",
+    "tracking_id",
+    "tracking_url",
+    "shipment_tracking_id",
+    "shipping_label_url",
 
-        # ---------------- PRIMARY KEYS ----------------
-        "pickup_delivery_req_item_id": (StringType(), pa.string(), True),
+    # -----------------------------
+    # Billing / Payment
+    # -----------------------------
+    "billing_branch_code",
+    "billing_from_branch_code",
+    "billing_gst_no",
+    "billed_at_branch_name",
 
-        # ---------------- STRING (varchar, text, enum) ----------------
-        "pickup_delivery_req_id": (StringType(), pa.string(), False),
-        "order_id": (StringType(), pa.string(), True),
-        "sale_order_id": (StringType(), pa.string(), True),
-        "invoice_no": (StringType(), pa.string(), False),
-        "invoice_reff_no": (StringType(), pa.string(), False),
-        "invoice_reff_date": (StringType(), pa.string(), False),
-        "customer_status": (StringType(), pa.string(), False),
-        "internal_status": (StringType(), pa.string(), False),
-        "inventory_status": (StringType(), pa.string(), False),
-        "shipment_status": (StringType(), pa.string(), False),
-        "inward_exchange_status": (StringType(), pa.string(), False),
-        "inventory_location_code": (StringType(), pa.string(), False),
-        "docking_area": (StringType(), pa.string(), False),
-        "docking_area_code": (StringType(), pa.string(), False),
-        "type_of_order": (StringType(), pa.string(), False),
-        "item_code": (StringType(), pa.string(), False),
-        "item_name": (StringType(), pa.string(), False),
-        "item_image": (StringType(), pa.string(), False),
-        "item_weight": (StringType(), pa.string(), False),
-        "category_code": (StringType(), pa.string(), False),
-        "category_name": (StringType(), pa.string(), False),
-        "inventory_location": (StringType(), pa.string(), False),
-        "inventory_location_branchname": (StringType(), pa.string(), False),
-        "inventory_location_mobileno": (StringType(), pa.string(), False),
-        "order_type": (StringType(), pa.string(), False),
-        "order_line_item_id": (StringType(), pa.string(), False),
-        "picklist_id": (StringType(), pa.string(), False),
-        "picker_id": (StringType(), pa.string(), False),
-        "manifest_id": (StringType(), pa.string(), False),
-        "shipment_id": (StringType(), pa.string(), False),
-        "driver_code": (StringType(), pa.string(), False),
-        "driver_name": (StringType(), pa.string(), False),
-        "driver_image": (StringType(), pa.string(), False),
-        "driver_contact": (StringType(), pa.string(), False),
-        "assistant_code": (StringType(), pa.string(), False),
-        "assistant_name": (StringType(), pa.string(), False),
-        "assistant_pic": (StringType(), pa.string(), False),
-        "assistant_contact": (StringType(), pa.string(), False),
-        "vehicle_no": (StringType(), pa.string(), False),
-        "vehicle_type": (StringType(), pa.string(), False),
-        "vehicle_name": (StringType(), pa.string(), False),
-        "vehicle_image": (StringType(), pa.string(), False),
-        "order_inv_status": (StringType(), pa.string(), False),
-        "tracking_id": (StringType(), pa.string(), False),
-        "tracking_url": (StringType(), pa.string(), False),
-        "permit": (StringType(), pa.string(), False),
-        "courier_name": (StringType(), pa.string(), False),
-        "courier_details": (StringType(), pa.string(), False),
-        "inventory_location_address": (StringType(), pa.string(), False),
-        "item_price": (StringType(), pa.string(), False),
-        "item_qty_label": (StringType(), pa.string(), False),
-        "item_dimension": (StringType(), pa.string(), False),
-        "line_itemid": (StringType(), pa.string(), False),
-        "invoice_status": (StringType(), pa.string(), False),
-        "exchange_invo_no": (StringType(), pa.string(), False),
-        "exchange_invoice_url": (StringType(), pa.string(), False),
-        "exchange_collected_amount": (StringType(), pa.string(), False),
-        "brand": (StringType(), pa.string(), False),
-        "capture_do_url": (StringType(), pa.string(), False),
-        "shipment_tracking_id": (StringType(), pa.string(), False),
-        "secondary_assistant_code": (StringType(), pa.string(), False),
-        "secondary_assistant_name": (StringType(), pa.string(), False),
-        "secondary_assistant_pic": (StringType(), pa.string(), False),
-        "secondary_assistant_contact": (StringType(), pa.string(), False),
-        "pickup_label_id": (StringType(), pa.string(), False),
-        "collection_location_type": (StringType(), pa.string(), False),
-        "collection_location_code": (StringType(), pa.string(), False),
-        "collection_location_branchname": (StringType(), pa.string(), False),
-        "collection_location_address": (StringType(), pa.string(), False),
-        "collection_location_mobileno": (StringType(), pa.string(), False),
-        "collection_docking_area": (StringType(), pa.string(), False),
-        "collection_docking_area_code": (StringType(), pa.string(), False),
-        "to_location_email": (StringType(), pa.string(), False),
-        "to_location_mobileno": (StringType(), pa.string(), False),
-        "to_location_address": (StringType(), pa.string(), False),
-        "to_location_lat_long": (StringType(), pa.string(), False),
-        "shipment_type": (StringType(), pa.string(), False),
-        "home_pickup": (StringType(), pa.string(), False),
-        "row_added_by": (StringType(), pa.string(), False),
-        "row_updated_by": (StringType(), pa.string(), False),
-        "to_location_fullname": (StringType(), pa.string(), False),
-        "courier_code": (StringType(), pa.string(), False),
-        "item_serial_no": (StringType(), pa.string(), False),
-        "selling_price": (StringType(), pa.string(), False),
-        "vendor_name": (StringType(), pa.string(), False),
-        "vendor_id": (StringType(), pa.string(), False),
-        "sale_invoice_no": (StringType(), pa.string(), False),
-        "erp_po_createdAt": (StringType(), pa.string(), False),
-        "erp_po_no": (StringType(), pa.string(), False),
-        "seller_order_id": (StringType(), pa.string(), False),
-        "seller_item_code": (StringType(), pa.string(), False),
-        "seller_id": (StringType(), pa.string(), False),
-        "seller_order_createdAt": (StringType(), pa.string(), False),
-        "seller_apob_code": (StringType(), pa.string(), False),
-        "unit_price": (StringType(), pa.string(), False),
-        "discount_price": (StringType(), pa.string(), False),
-        "plant": (StringType(), pa.string(), False),
-        "seller_branch_code": (StringType(), pa.string(), False),
+    "payment_email",
+    "customer_email",
+    "customer_name",
+    "customer_mobile",
 
-        # ---------------- JSON Fields (store as string for Iceberg) ----------------
-        "picker_details": (StringType(), pa.string(), False),
-        "order_tag": (StringType(), pa.string(), False),
-        "status_notification": (StringType(), pa.string(), False),
-        "vendor_details": (StringType(), pa.string(), False),
-        "tracking_details": (StringType(), pa.string(), False),
-        "invoiced_item_detail": (StringType(), pa.string(), False),
-        "shipment_transfer_info": (StringType(), pa.string(), False),
+    # -----------------------------
+    # ERP / Seller
+    # -----------------------------
+    "erp_po_createdAt",
+    "erp_po_no",
+    "seller_order_createdAt",
+    "seller_apob_code",
+    "seller_branch_code",
 
-        # ---------------- INTEGER ----------------
-        "item_qty": (IntegerType(), pa.int32(), False),
-        "dimension_length": (IntegerType(), pa.int32(), False),
-        "dimension_height": (IntegerType(), pa.int32(), False),
-        "dimension_width": (IntegerType(), pa.int32(), False),
-        "reattempt_count": (IntegerType(), pa.int32(), False),
-        "delivery_charge": (IntegerType(), pa.int32(), False),
-        "otp_verified_status": (IntegerType(), pa.int32(), False),
-        "payment_verification": (IntegerType(), pa.int32(), False),
-        "dropship_flag": (IntegerType(), pa.int32(), False),
+    # -----------------------------
+    # Misc / Textual
+    # -----------------------------
+    "invoice_reff_date",
+    "exchange_invo_no",
+    "exchange_invoice_url",
+    "exchange_collected_amount",
+    "capture_do_url",
+    "permit",
+    "line_itemid",
+    "quote_id",
+    "mapping_domain",
+    "invoice_url",
+]
 
-        # ---------------- DECIMAL (float) ----------------
-        "latitude": (FloatType(), pa.float64(), False),
-        "longitude": (FloatType(), pa.float64(), False),
+TIMESTAMP_FIELDS = [
+    "invoice_date",
+    "expect_delivery_pickup_dt",
+    "picker_added_dt",
+    "manifest_added_dt",
+    "exchange_invo_date",
+    "goods_received_date",
+    "row_added_dt",
+    "row_updated_dt",
+]
 
-        # ---------------- DATE Fields ----------------
-        "sale_invoice_date": (DateType(), pa.date32(), False),
+BOOLEAN_FIELDS = [
+    "ispickup_active",
+    "otp_verified_status",
+    "payment_verification",
+    "dropship_flag",
+    "preorder",
+]
 
-        # ---------------- TIMESTAMP Fields ----------------
-        "invoice_date": (TimestampType(), pa.timestamp('ms'), False),
-        "expect_delivery_pickup_dt": (TimestampType(), pa.timestamp('ms'), False),
-        "picker_added_dt": (TimestampType(), pa.timestamp('ms'), False),
-        "manifest_added_dt": (TimestampType(), pa.timestamp('ms'), False),
-        "exchange_invo_date": (TimestampType(), pa.timestamp('ms'), False),
-        "row_added_dt": (TimestampType(), pa.timestamp('ms'), False),
-        "row_updated_dt": (TimestampType(), pa.timestamp('ms'), False),
-        "goods_received_date": (TimestampType(), pa.timestamp('ms'), False),
-        "updated_at_new": (TimestampType(), pa.timestamp('ms'), False),
-    }
+FIELD_OVERRIDES = {
 
-    # --------------------------------------------------------------------
-    # AUTO DETECTION FOR FIELDS NOT IN FIELD_OVERRIDES
-    # --------------------------------------------------------------------
-    for idx, (name, value) in enumerate(record.items(), start=1):
+    # -----------------------------
+    # BOOLEAN / FLAG (tinyint / enum)
+    # -----------------------------
+    "ispickup_active": IntegerType(),
+    "otp_verified_status": IntegerType(),
+    "payment_verification": IntegerType(),
+    "dropship_flag": IntegerType(),
+    "preorder": IntegerType(),
+    "is_item_installable": StringType(),  # enum YES/NO
 
-        if name in field_overrides:
-            ice_type, arrow_type, required = field_overrides[name]
-        else:
-            required = False
+    # -----------------------------
+    # DATE / TIMESTAMP
+    # -----------------------------
+    "invoice_date": TimestampType(),
+    "expect_delivery_pickup_dt": TimestampType(),
+    "picker_added_dt": TimestampType(),
+    "manifest_added_dt": TimestampType(),
+    "exchange_invo_date": TimestampType(),
+    "goods_received_date": TimestampType(),
+    "row_added_dt": TimestampType(),
+    "row_updated_dt": TimestampType(),
+    "sale_invoice_date": DateType(),
 
-            # bool
-            if isinstance(value, bool):
-                ice_type, arrow_type = BooleanType(), pa.bool_()
+    # -----------------------------
+    # GEO / DECIMAL
+    # -----------------------------
+    "latitude": DoubleType(),    # decimal(10,6)
+    "longitude": DoubleType(),   # decimal(10,6)
 
-            # int
-            elif isinstance(value, int):
-                ice_type, arrow_type = IntegerType(), pa.int32()
+    # -----------------------------
+    # NUMERIC
+    # -----------------------------
+    "item_qty": IntegerType(),
+    "dimension_length": IntegerType(),
+    "dimension_height": IntegerType(),
+    "dimension_width": IntegerType(),
+    "reattempt_count": IntegerType(),
+    "delivery_charge": IntegerType(),
+    "adld_charges": IntegerType(),
+    "ew_charges": IntegerType(),
+    "to_location_pincode": IntegerType(),
 
-            # float
-            elif isinstance(value, float):
-                ice_type, arrow_type = DoubleType(), pa.float64()
+    # -----------------------------
+    # JSON → STRING (Iceberg-safe)
+    # -----------------------------
+    "picker_details": StringType(),
+    "order_tag": StringType(),
+    "status_notification": StringType(),
+    "shipment_transfer_info": StringType(),
+    "vendor_details": StringType(),
+    "tracking_details": StringType(),
+    "invoiced_item_detail": StringType(),
+    "billing_from_branch_details": StringType(),
+    "delivery_from_branch_details": StringType(),
+    "reject_remarks": StringType(),
 
-            # date
-            elif isinstance(value, date) and not isinstance(value, datetime):
-                ice_type, arrow_type = DateType(), pa.date32()
-
-            # timestamp
-            elif isinstance(value, datetime):
-                ice_type, arrow_type = TimestampType(), pa.timestamp('ms')
-
-            # string fallback
-            else:
-                ice_type, arrow_type = StringType(), pa.string()
-
-        iceberg_fields.append(
-            NestedField(field_id=idx, name=name, field_type=ice_type, required=required)
-        )
-        arrow_fields.append(pa.field(name, arrow_type, nullable=not required))
-
-    iceberg_schema = Schema(*iceberg_fields)
-    arrow_schema = pa.schema(arrow_fields)
-
-    return iceberg_schema, arrow_schema
+    # -----------------------------
+    # TEXT (force string)
+    # -----------------------------
+    "invoice_reff_date": StringType(),
+    "permit": StringType(),
+    "courier_details": StringType(),
+    "inventory_location_address": StringType(),
+    "tracking_url": StringType(),
+    "exchange_invoice_url": StringType(),
+    "shipping_label_url": StringType(),
+    "invoice_url": StringType(),
+}

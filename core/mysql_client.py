@@ -201,7 +201,7 @@ class MysqlCatalog:
             return self.cursor.fetchall()
 
         except Exception as e:
-            print(f"MySQL fetch failed | table={table_name} "
+            print(f"MySQL fetch failed | table={table_name}|error={e} "
             f"range=({start_date},{end_date})")
             return []
 
@@ -282,7 +282,7 @@ class MysqlCatalog:
             return self.cursor.fetchall()
 
         except Exception as e:
-            print(f"MySQL fetch failed | table={table_name} "
+            print(f"MySQL fetch failed | table={table_name}|error={e} "
             f"range=({start_date},{end_date})")
             return []
 

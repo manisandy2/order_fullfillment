@@ -8,23 +8,26 @@ from pyiceberg.catalog import NoSuchTableError
 from .insert_data import process_chunk
 from fastapi import status
 from core.logger import get_logger
+from core.between_range import MydatabaseRange
 
-logger = get_logger("masterorder-api")
+url_prefix = "masterorders"
+
+logger = get_logger("masterorders")
 
 router = APIRouter(prefix="", tags=["MasterOrder"])
 
 
 # mysql | range | chunk_size | multithreading | arrow | append
-@router.post("/masterorder/insert-master-with-mysql-range")
+@router.post("/masterorders/ingest/mysql-range")
 def masterorder_between_range(
     start_range: int = Query(0, description="Start row offset for MySQL data fetch"),
     end_range: int = Query(100, description="End row offset for MySQL data fetch"),
     chunk_size: int = Query(10000, description="Chunk size for multithreading"),
-    date_filter: str = Query("2025-12-23", description="Date for MySQL data fetch"),
+
 ):
     total_start = time.time()
-    namespace, table_name = "order_fulfillment", "masterorders"
-    dbname = "masterorders"
+    namespace, table_name = "order_fulfillment", f"{url_prefix}"
+    dbname = f"{url_prefix}"
 
 
     logger.info(
@@ -32,7 +35,7 @@ def masterorder_between_range(
         f"range=({start_range},{end_range}) chunk_size={chunk_size}"
     )
 
-    mysql_creds = MysqlCatalog()
+    mysql_creds = MydatabaseRange()
 
     # -------------------------------------------------
     # Step 1: Fetch and Convert MySQL Data
@@ -40,8 +43,8 @@ def masterorder_between_range(
     try:
         start_time = time.time()
         # rows = mysql_creds.get_master_order(dbname, start_range, end_range,"2025-12-12")
-        rows = mysql_creds.get_master_order(dbname, start_range, end_range,date_filter)
-
+        rows = mysql_creds.get_master_orders(dbname, start_range, end_range)
+        print(f"{len(rows)} rows fetched from get_master_order")
         logger.debug(f"MySQL fetch completed in {time.time() - start_time:.2f}s")
         if not rows:
             logger.warning("No rows found for given range")
@@ -232,13 +235,21 @@ def masterorder_between_range(
 # mysql | date_range | chunk_size | iceberg | arrow | append
 @router.post("/masterorder-date-range/insert-master-with-mysql")
 def masterorder_between_date(
-        start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
-        end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
+        # start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
+        # end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "masterorders"
     dbname = "masterorders"
+
+
+    start_date = datetime.strptime("2026-01-29 20:34:50", "%Y-%m-%d %H:%M:%S")
+    end_date = datetime.strptime("2026-02-02 23:59:59", "%Y-%m-%d %H:%M:%S")
+
+    print("start:",start_date)
+    print("end:",end_date)
+    # exit()
 
     if start_date > end_date:
         raise HTTPException(
@@ -259,7 +270,7 @@ def masterorder_between_date(
         end_dt = end_date.strftime("%Y-%m-%d %H:%M:%S")
         # rows = mysql_creds.get_master_order(dbname, start_range, end_range,"2025-12-12")
         rows = mysql_creds.get_master_order_date_range(dbname, start_dt, end_dt)
-
+        print("rows:",len(rows))
         print("mysql fetch time", time.time() - start_time)
 
         if not rows:

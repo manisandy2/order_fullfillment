@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Query,Body, HTTPException,UploadFile, File
-
+from core.mysql_client import MysqlCatalog
 import logging
 from routers import all_routers
 
@@ -62,39 +62,39 @@ def root():
 
 
 
-# @app.get("/table/schema")
-# def table_schema(table_name: str = Query(..., description="Table name")):
-#     catalog = MysqlCatalog()
-#     try:
-#         description = catalog.get_describe(table_name)
-#         if not description:
-#             raise HTTPException(
-#                 status_code=404,
-#                 detail={
-#                     "error_code": "TABLE_NOT_FOUND",
-#                     "message": f"Table '{table_name}' not found"
-#                 }
-#             )
-#         return {"schema": description}
-#
-#     except Error as e:
-#         # Database-related error
-#         raise HTTPException(
-#             status_code=500,
-#             detail={
-#                 "error_code": "DB_ERROR",
-#                 "message": str(e)
-#             }
-#         )
-#     except Exception as e:
-#         # Unexpected error
-#         raise HTTPException(
-#             status_code=400,
-#             detail={
-#                 "error_code": "BAD_REQUEST",
-#                 "message": str(e)
-#             }
-#         )
-#     finally:
-#         catalog.close()
+@app.get("/table/schema")
+def table_schema(table_name: str = Query(..., description="Table name")):
+    catalog = MysqlCatalog()
+    try:
+        description = catalog.get_describe(table_name)
+        if not description:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error_code": "TABLE_NOT_FOUND",
+                    "message": f"Table '{table_name}' not found"
+                }
+            )
+        return {"schema": description}
+
+    except Error as e:
+        # Database-related error
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": "DB_ERROR",
+                "message": str(e)
+            }
+        )
+    except Exception as e:
+        # Unexpected error
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": "BAD_REQUEST",
+                "message": str(e)
+            }
+        )
+    finally:
+        catalog.close()
 

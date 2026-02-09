@@ -2,7 +2,7 @@ from fastapi import APIRouter,Query,Body
 import time
 import uuid
 from core.mysql_client import MysqlCatalog
-from .masterOrderUtility import *
+from .masterOrder_wUtility import *
 from core.catalog_client import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pyiceberg.catalog import NoSuchTableError
@@ -246,13 +246,16 @@ def insert(
 @router.post("/masterorder-w-date-range/insert-master-with-mysql")
 def multi_within_mysql_date_range(
 
-        start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
-        end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
+        # start_date: datetime = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
+        # end_date: datetime = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
         chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "masterorders_w"
     dbname = "masterorders_w"
+
+    start_date = datetime.strptime("2026-02-02 00:00:00", "%Y-%m-%d %H:%M:%S")
+    end_date = datetime.strptime("2026-02-02 23:59:59", "%Y-%m-%d %H:%M:%S")
 
     if start_date > end_date:
         raise HTTPException(

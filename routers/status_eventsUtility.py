@@ -18,7 +18,7 @@ def statusEvent_clean_rows(rows):
         "exp_delivery_date",
         "row_added_dttm",
         "row_updated_dttm",
-        "updated_at_new",
+        # "updated_at_new",
     ]
 
     # STRING + TEXT + JSON FIELDS
@@ -125,7 +125,7 @@ def statusEvent_schema(record: dict):
         "exp_delivery_date": (TimestampType(), pa.timestamp("ms"), False),
         "row_added_dttm": (TimestampType(), pa.timestamp("ms"), False),
         "row_updated_dttm": (TimestampType(), pa.timestamp("ms"), False),
-        "updated_at_new": (TimestampType(), pa.timestamp("ms"), False),
+        # "updated_at_new": (TimestampType(), pa.timestamp("ms"), False),
 
         # INTEGER
         "oms_data_migration_status": (IntegerType(), pa.int32(), False),

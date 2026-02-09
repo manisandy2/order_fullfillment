@@ -72,7 +72,7 @@ def orderlineitems_schema(record: dict):
         "updated_by": (StringType(), pa.string(), False),
         "serial_no": (StringType(), pa.string(), False),
         "offer_type": (StringType(), pa.string(), False),
-        "delivery_type": (StringType(), pa.string(), False),
+        # "delivery_type": (StringType(), pa.string(), False),
     }
 
     # ----------------------------------------------------------
@@ -138,7 +138,7 @@ def orderlineitems_clean_rows(rows):
         "category_code", "category_name", "item_qty_label", "exg_invo_no", "exg_invo_date",
         "home_pickup", "order_inv_status", "slug", "product_name", "model", "erp_item_code",
         "product_hsn", "image", "options", "delivery_charges", "price", "brand_code", "brand_name",
-        "created_by", "updated_by", "serial_no", "offer_type", "delivery_type",
+        "created_by", "updated_by", "serial_no", "offer_type",
 
         # JSON fields stored as string
         "product_policy", "billed_details", "delivery_details", "invoice_details",

@@ -244,16 +244,18 @@ def multi_within_mysql(
     return response
 
 
-@router.post("/orderlineitems-date-range/insert-multi-with-mysql")
+@router.post("/orderlineitems-date-range/insert-multi-with-mysql-test")
 def multi_within_mysql_date_range(
-    start_date: str = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
-    end_date: str = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
+    # start_date: str = Query(..., description="Start datetime YYYY-MM-DD HH:MM:SS"),
+    # end_date: str = Query(..., description="End datetime YYYY-MM-DD HH:MM:SS"),
     chunk_size: int = Query(10000, description="Chunk size for multithreading"),
 ):
     total_start = time.time()
     namespace, table_name = "order_fulfillment", "orderlineitems"
     dbname = "orderlineitems"
 
+    start_date = datetime.strptime("2026-02-02 00:00:00", "%Y-%m-%d %H:%M:%S")
+    end_date = datetime.strptime("2026-02-02 23:59:59", "%Y-%m-%d %H:%M:%S")
     logger.info(
         f"START ingestion | table={namespace}.{table_name} "
         f"date_range=({start_date},{end_date}) chunk_size={chunk_size}"

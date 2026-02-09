@@ -15,11 +15,6 @@ class Creds:
         self.TOKEN: str | None = os.getenv("TOKEN")
         self.CATALOG_NAME: str | None = os.getenv("CATALOG_NAME")
 
-        # print(self.CATALOG_URI)
-        # print(self.WAREHOUSE)
-        # print(self.TOKEN)
-        # print(self.CATALOG_NAME)
-
     def catalog_valid(self) -> RestCatalog:
         if not all([self.CATALOG_URI, self.WAREHOUSE, self.TOKEN, self.CATALOG_NAME]):
             raise ValueError("Missing environment variables. Please check CATALOG_URI, WAREHOUSE, TOKEN, or CATALOG_NAME.")
@@ -30,8 +25,7 @@ class Creds:
             uri=self.CATALOG_URI,
             token=self.TOKEN
         )
-    
-    
+
 def get_catalog_client() -> RestCatalog:
     try:
         return Creds().catalog_valid()
