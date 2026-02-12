@@ -1,13 +1,13 @@
+
+from .intransit_shipmentsUtility import *
 from core.between_date import MysqlCatalog
 from utility import *
-from .service_master_cUtility import *
 
-
-def service_master_c_between_date():
+def intransit_shipments_between_date():
 
     namespace = "order_fulfillment"
-    table_name =  "service_master_c"
-    dbname = "service_master_c"
+    table_name = "intransit_shipments"
+    dbname = "intransit_shipments"
     chunk_size = 1000
 
     last_val = get_last_date_value(namespace, table_name, "created_at")
@@ -21,7 +21,7 @@ def service_master_c_between_date():
     rows = fetch_mysql_date_range(
         mysql_client=mysql,
         dbname=dbname,
-        fetch_fn=mysql.get_service_master_c_date_between,
+        fetch_fn=mysql.get_intransit_shipments_date_between,
         start_date=start_date,
         end_date=end_date,
     )

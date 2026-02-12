@@ -1,12 +1,8 @@
-from datetime import datetime
 from core.between_date import MysqlCatalog
 from .courierMastersUtility import *
-from utility import (load_table_identifier,
-                      multi_executor,validate_date_range,handle_failed_chunks,
-                      fetch_mysql_date_range,get_last_date_value,yesterday,
-                     clean_rows,schema
-                     )
-def courier_masters_between_range():
+from utility import *
+
+def courier_masters_between_date():
 
     namespace = "order_fulfillment"
     table_name = "courier_masters"
@@ -65,7 +61,7 @@ def courier_masters_between_range():
 
     append_errors = handle_failed_chunks(
         table_name=table_name,
-        failed_chunks=failed_chunks,
+        failed_chunks=failed_batches,
         error_type="ICEBERG_APPEND_FAILED",
 
     )
@@ -85,7 +81,7 @@ def courier_masters_between_range():
 
 
 def run():
-    return courier_masters_between_range()
+    return courier_masters_between_date()
     
 
     
