@@ -21,7 +21,7 @@ def intransit_pickup_delivery_items_between_date():
     rows = fetch_mysql_date_range(
         mysql_client=mysql,
         dbname=dbname,
-        fetch_fn=mysql.get_installation_services_date_between,
+        fetch_fn=mysql.get_intransit_pickup_delivery_items_date_between,
         start_date=start_date,
         end_date=end_date,
     )

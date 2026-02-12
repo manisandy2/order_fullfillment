@@ -21,7 +21,7 @@ def return_masterorders_between_date():
     rows = fetch_mysql_date_range(
         mysql_client=mysql,
         dbname=dbname,
-        fetch_fn=mysql.get_status_event_date_between,
+        fetch_fn=mysql.get_return_masterorders_date_between,
         start_date=start_date,
         end_date=end_date,
     )

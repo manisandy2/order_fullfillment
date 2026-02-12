@@ -1,12 +1,12 @@
-from utility import *
 from core.between_date import MysqlCatalog
-from master_order_WUtility import *
+from utility import *
+from .return_orderlineitemsUtility import *
 
-def master_order_w_between_date():
+def return_orderlineitems_between_date():
 
     namespace = "order_fulfillment"
-    table_name = "masterorders_w"
-    dbname = "masterorders_w"
+    table_name = "return_orderlineitems"
+    dbname = "return_orderlineitems"
     chunk_size = 1000
 
     last_val = get_last_date_value(namespace, table_name, "created_at")
@@ -20,7 +20,7 @@ def master_order_w_between_date():
     rows = fetch_mysql_date_range(
         mysql_client=mysql,
         dbname=dbname,
-        fetch_fn=mysql.get_master_order_w_date_between,
+        fetch_fn=mysql.get_return_orderlineitems_date_between,
         start_date=start_date,
         end_date=end_date,
     )
@@ -33,15 +33,9 @@ def master_order_w_between_date():
         field_overrides=FIELD_OVERRIDES,
     )
 
-    # Create a deterministic schema using all expected columns + fields handled by clean_rows
-    # This prevents runtime type inference errors if rows[0] is missing fields or contains None
-    from core.db_colums import masterorder_columns
-    
-    schema_keys = set(masterorder_columns) | set(BOOLEAN_FIELDS) | set(TIMESTAMP_FIELDS) | set(DATE_FIELDS)
-    dummy_row = {key: None for key in schema_keys}
-    _, arrow_schema = schema(dummy_row, FIELD_OVERRIDES)
+    _, arrow_schema = schema(rows[0], FIELD_OVERRIDES)
 
-    chunks = [rows[i:i+chunk_size] for i in range(0, len(rows), chunk_size)]
+    chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
     arrow_tables = []
     failed_chunks = []
     # arrow_tables, failed_chunks = multi_executor(arrow_schema, chunks, arrow_tables, failed_chunks)
@@ -74,8 +68,8 @@ def master_order_w_between_date():
 
     return {
         "rows_fetched": len(rows),
-        "start_date":start_date,
-        "end_date":end_date,
+        "start_date": start_date,
+        "end_date": end_date,
         "chunks_total": len(chunks),
         "chunks_success": len(arrow_tables),
         "chunks_failed": len(failed_chunks),
@@ -85,5 +79,6 @@ def master_order_w_between_date():
         "status": "COMPLETED"
     }
 
+
 def run():
-    return master_order_w_between_date()
+    return return_orderlineitems_between_date()

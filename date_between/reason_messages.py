@@ -20,7 +20,7 @@ def reason_messages_between_date():
     rows = fetch_mysql_date_range(
         mysql_client=mysql,
         dbname=dbname,
-        fetch_fn=mysql.get_status_event_date_between,
+        fetch_fn=mysql.get_reason_messages_date_between,
         start_date=start_date,
         end_date=end_date,
     )
