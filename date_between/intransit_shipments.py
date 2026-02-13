@@ -82,4 +82,4 @@ def intransit_shipments_between_date():
 
 
 def run():
-    return service_history_h_between_date()
+    return intransit_shipments_between_date()

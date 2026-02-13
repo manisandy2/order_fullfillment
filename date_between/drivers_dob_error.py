@@ -1,23 +1,19 @@
-from datetime import datetime
 from core.between_date import MysqlCatalog
-from utility import (load_table_identifier,
-                      multi_executor,validate_date_range,handle_failed_chunks,
-                      fetch_mysql_date_range,get_last_date_value,yesterday,
-                     clean_rows,schema
-                     )
-from .driversUtility import *
+from utility import *
+from .drivers_dob_errorUtility import *
 
-def drivers_between_date():
+
+def drivers_dob_error_between_date():
 
     namespace = "order_fulfillment"
-    table_name = "drivers"
-    dbname = "drivers"
+    table_name = "drivers_dob_error"
+    dbname = "drivers_dob_error"
     chunk_size = 1000
 
     last_val = get_last_date_value(namespace, table_name, "created_at")
     start_date = datetime.fromisoformat(last_val["last_value"])
     end_date = yesterday()
-    
+
     validate_date_range(start_date, end_date)
 
     mysql = MysqlCatalog()
@@ -25,7 +21,7 @@ def drivers_between_date():
     rows = fetch_mysql_date_range(
         mysql_client=mysql,
         dbname=dbname,
-        fetch_fn=mysql.get_drivers_date_between,
+        fetch_fn=mysql.get_drivers_dob_error_date_between,
         start_date=start_date,
         end_date=end_date,
     )
@@ -84,5 +80,6 @@ def drivers_between_date():
         "status": "COMPLETED"
     }
 
+
 def run():
-    return drivers_between_date()
+    return drivers_dob_error_between_date()

@@ -82,6 +82,3 @@ def courier_masters_between_date():
 
 def run():
     return courier_masters_between_date()
-    
-
-    

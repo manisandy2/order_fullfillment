@@ -2,8 +2,6 @@ from .vehiclesUtility import *
 from core.between_date import MysqlCatalog
 from utility import *
 
-
-
 def vehicles_between_date():
 
     namespace = "order_fulfillment"

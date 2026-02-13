@@ -4,7 +4,7 @@ from .schedulersUtility import *
 from utility import *
 
 
-def schedulers_between_range():
+def schedulers_between_date():
 
     namespace, table_name = "order_fulfillment", "schedulers"
     dbname = "schedulers"
@@ -82,4 +82,4 @@ def schedulers_between_range():
 
 
 def run():
-    return reason_messages_between_date()
+    return schedulers_between_date()

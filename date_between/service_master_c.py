@@ -82,4 +82,4 @@ def service_master_c_between_date():
 
 
 def run():
-    return service_history_h_between_date()
+    return service_master_c_between_date()

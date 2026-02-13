@@ -3,7 +3,7 @@ from core.between_date import MysqlCatalog
 from utility import *
 
 
-def intransit_manifests_between_range():
+def intransit_manifests_between_date():
 
     namespace = "order_fulfillment"
     table_name = "intransit_manifests"
@@ -82,4 +82,4 @@ def intransit_manifests_between_range():
 
 
 def run():
-    return intransit_manifests_between_range()
+    return intransit_manifests_between_date()
