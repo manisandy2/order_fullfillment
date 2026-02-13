@@ -6,14 +6,46 @@ import sys
 sys.path.append(os.getcwd())
 
 from date_between import (
+    bluedart_zone_masters,
+    courier_masters,
+    drivers,
+    exchange_informations,
+    exchange_masterorders,
+    exchange_masterorders_w,
+    exchange_orderlineitems,
+    externalcalllogs,
+    hub_masters,
+    installation_services,
+    intransit_manifests,
+    intransit_pickup_delivery_items,
+    intransit_shipments,
+    invoice_masters,
+    manifests,
     master_order,
     master_order_W,
     orderlineitems,
-    status_events,
+    pick_lists,
+    pickup_deliveries,
     pickup_delivery_items,
     pickup_delivery_items_W,
-    bluedart_zone_masters,
-    exchange_informations,
+
+    reason_messages,
+    return_masterorders,
+    return_masterorders_w,
+    return_orderlineitems,
+    roles,
+    scheduler_retention_log,
+    schedulers,
+    schedulers_w,
+    service_history_c,
+    service_history_h,
+    service_master_c,
+    service_master_h,
+    shipments,
+    status_events,
+    users,
+    vehicles
+
 )
 
 # Use a local log file to avoid PermissionError in /var/log
@@ -29,7 +61,7 @@ JOBS = [
     ("masterorders", master_order.run),
     ("masterorders_w", master_order_W.run),
     ("pickup_delivery_items", pickup_delivery_items.run),
-    ("pickup_delivery_items_w", pickup_delivery_items_W.run), # Fixed duplicate key
+    ("pickup_delivery_items_w", pickup_delivery_items_W.run), 
     ("orderlineitems", orderlineitems.run),
     ("status_events", status_events.run),
     ("bluedart_zone_masters", bluedart_zone_masters.run),

@@ -62,7 +62,7 @@ def schedulers_between_range():
 
     append_errors = handle_failed_chunks(
         table_name=table_name,
-        failed_chunks=failed_chunks,
+        failed_chunks=failed_batches,
         error_type="ICEBERG_APPEND_FAILED",
 
     )

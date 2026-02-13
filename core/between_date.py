@@ -56,7 +56,7 @@ class MysqlCatalog:
 
         except Exception as e:
             logger.exception(f"MySQL fetch failed | table={table_name} | range=({start_date},{end_date}) | error={e}")
-            return []
+            raise e
 
     # --- Refactored Methods ---
 

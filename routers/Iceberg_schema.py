@@ -227,12 +227,12 @@ drivers_dob_error_columns = [
     NestedField(23, "approval_status", StringType(), required=False),
 
     # ---------------- IDENTITY DOCS ----------------
-    NestedField(24, "driving_license_num", StringType(), required=True),
-    NestedField(25, "driving_license_url", StringType(), required=True),
+    NestedField(24, "driving_license_num", StringType(), required=False),
+    NestedField(25, "driving_license_url", StringType(), required=False),
     NestedField(26, "driving_license_expiry", TimestampType(), required=False),
 
-    NestedField(27, "aadhar_card_num", StringType(), required=True),
-    NestedField(28, "aadhar_card_url", StringType(), required=True),
+    NestedField(27, "aadhar_card_num", StringType(), required=False),
+    NestedField(28, "aadhar_card_url", StringType(), required=False),
 
     NestedField(29, "voter_id_num", StringType(), required=False),
     NestedField(30, "voter_id_url", StringType(), required=False),

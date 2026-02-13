@@ -52,7 +52,7 @@ REQUIRED_FIELDS = [
     "pincode",
     "country",
     "gender",
-    "driving_license_num",
+    # "driving_license_num",
     "driving_license_url",
     "aadhar_card_num",
     "aadhar_card_url",
