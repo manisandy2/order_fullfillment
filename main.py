@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query,Body, HTTPException,UploadFile, File
 from core.mysql_client import MysqlCatalog
 import logging
 from routers import all_routers
+from last_value import table
 
 from api import health
 logger = logging.getLogger(__name__)
@@ -11,9 +12,12 @@ app = FastAPI(
     version="1.0.0"
 )
 app.include_router(health.router, tags=["Health"])
+app.include_router(table.router)
 # app.include_router(tables.router, prefix="/tables", tags=["Tables"])
 for router in all_routers:
     app.include_router(router)
+# for r in all_routers_table:
+#     app.include_router(r)
 
 # app.include_router(bucket.router)
 # app.include_router(namespace.router)

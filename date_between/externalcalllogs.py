@@ -1,7 +1,7 @@
 from datetime import datetime
 from .externalcalllogsUtility import *
 from core.between_date import MysqlCatalog
-from utility import *
+from date_between.utility import *
 
 def externalcalllogs_between_date():
 
@@ -11,20 +11,30 @@ def externalcalllogs_between_date():
     chunk_size = 1000
 
     last_val = get_last_date_value(namespace, table_name, "created_at")
+    if not last_val["last_value"]:
+        return {"status": "NO_EXISTING_DATA"}
+
     start_date = datetime.fromisoformat(last_val["last_value"])
     end_date = yesterday()
 
     validate_date_range(start_date, end_date)
 
-    mysql = MysqlCatalog()
+    with MysqlCatalog() as mysql:
 
-    rows = fetch_mysql_date_range(
-        mysql_client=mysql,
-        dbname=dbname,
-        fetch_fn=mysql.get_externalcalllogs_date_between,
-        start_date=start_date,
-        end_date=end_date,
-    )
+        rows = fetch_mysql_date_range(
+            mysql_client=mysql,
+            dbname=dbname,
+            fetch_fn=mysql.get_externalcalllogs_date_between,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    if not rows:
+        return {
+            "status": "NO_DATA",
+            "rows_fetched": 0,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
 
     clean_rows(
         rows,
@@ -37,49 +47,26 @@ def externalcalllogs_between_date():
     _, arrow_schema = schema(rows[0], FIELD_OVERRIDES)
 
     chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
-    arrow_tables = []
-    failed_chunks = []
-    # arrow_tables, failed_chunks = multi_executor(arrow_schema, chunks, arrow_tables, failed_chunks)
-    multi_executor(arrow_schema, chunks, arrow_tables, failed_chunks)
-
-    arrow_errors = handle_failed_chunks(
-        table_name=table_name,
-        failed_chunks=failed_chunks,
-        error_type="ARROW_CONVERSION_FAILED",
-    )
-
     tbl = load_table_identifier(namespace, table_name)
 
+    failed_chunks = []
+    success_chunks = 0
     failed_batches = []
-    for batch in arrow_tables:
-        try:
-            tbl.append(batch)
-        except Exception as e:
-            failed_batches.append({
-                "chunk_data": batch.to_pylist(),
-                "error": str(e)
-            })
-
-    append_errors = handle_failed_chunks(
-        table_name=table_name,
-        failed_chunks=failed_chunks,
-        error_type="ICEBERG_APPEND_FAILED",
-
-    )
 
     return {
         "rows_fetched": len(rows),
         "start_date": start_date,
         "end_date": end_date,
         "chunks_total": len(chunks),
-        "chunks_success": len(arrow_tables),
         "chunks_failed": len(failed_chunks),
         "append_failed": len(failed_batches),
-        "arrow_errors": arrow_errors,
-        "append_errors": append_errors,
         "status": "COMPLETED"
     }
 
 
 def run():
     return externalcalllogs_between_date()
+
+if __name__ == "__main__":
+    result = run()
+    print(result)

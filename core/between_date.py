@@ -22,14 +22,11 @@ def mysql_connect():
             database=os.getenv("DATABASE"),
             port=int(os.getenv("PORT", 3306))
         )
-        if conn.is_connected():
-            logger.info("MySQL connection established")
-            return conn
-        else:
-            raise ConnectionError("MySQL connection could not be established")
+        return conn
+
     except Error as e:
         logger.error(f"Error connecting to MySQL: {e}")
-        return None
+        raise
 
 
 class MysqlCatalog:
@@ -40,25 +37,77 @@ class MysqlCatalog:
             raise ConnectionError("Failed to connect to MySQL database")
         self.cursor = self.conn.cursor(dictionary=True)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.conn:
+            self.conn.close()
+
     def _fetch_date_range(self, table_name: str, start_date: str, end_date: str, columns: list, date_col: str, sort_col: str) -> list:
         """Generic method to fetch data within a date range."""
-        try:
-            cols_str = ", ".join(columns)
-            query = f"""
-                SELECT {cols_str}
-                FROM `{table_name}`
-                WHERE {date_col} BETWEEN %s AND %s
-                ORDER BY {sort_col} ASC
-            """
 
-            self.cursor.execute(query, (start_date, end_date))
-            return self.cursor.fetchall()
+        cols_str = ", ".join(columns)
+        query = f"""
+            SELECT {cols_str}
+            FROM `{table_name}`
+            WHERE {date_col} BETWEEN %s AND %s
+            ORDER BY {sort_col} ASC
+        """
+        if not self.conn.is_connected():
+            self.conn.reconnect()
+            self.cursor = self.conn.cursor(dictionary=True)
 
-        except Exception as e:
-            logger.exception(f"MySQL fetch failed | table={table_name} | range=({start_date},{end_date}) | error={e}")
-            raise e
+        self.cursor.execute(query, (start_date, end_date))
+
+        # 🔥 RETURN LIST (NOT GENERATOR)
+        rows = self.cursor.fetchall()
+        return rows
+
+
+        # except Exception as e:
+        #     logger.exception(f"MySQL fetch failed | table={table_name} | range=({start_date},{end_date}) | error={e}")
+        #     raise e
 
     # --- Refactored Methods ---
+    # def _fetch_date_range(
+    #         self,
+    #         table_name: str,
+    #         start_date,
+    #         end_date,
+    #         columns: list,
+    #         date_col: str,
+    #         sort_col: str,
+    #         limit: int
+    # ) -> list:
+    #     """
+    #     Fetch limited rows within date range (streaming-safe).
+    #     """
+    #
+    #     cols_str = ", ".join(columns)
+    #
+    #     query = f"""
+    #         SELECT {cols_str}
+    #         FROM `{table_name}`
+    #         WHERE {date_col} > %s
+    #           AND {date_col} <= %s
+    #         ORDER BY {sort_col} ASC
+    #         LIMIT %s
+    #     """
+    #
+    #     if not self.conn.is_connected():
+    #         self.conn.reconnect()
+    #         self.cursor = self.conn.cursor(dictionary=True)
+    #
+    #     self.cursor.execute(query, (start_date, end_date, limit))
+    #
+    #     rows = self.cursor.fetchall()  # only LIMIT rows now
+    #     return rows
 
     def get_master_order_date_between(self, table_name: str, start_date: str, end_date: str) -> list:
         return self._fetch_date_range(table_name, start_date, end_date, db_colums.masterorder_columns, "created_at", "order_id")
@@ -181,11 +230,5 @@ class MysqlCatalog:
         return self._fetch_date_range(table_name, start_date, end_date, db_colums.vehicles_columns, "created_at", "id")
 
 
-    def close(self) -> None:
-        """Close database connection and cursor."""
-        if self.cursor:
-            self.cursor.close()
-        if self.conn:
-            self.conn.close()
 
 

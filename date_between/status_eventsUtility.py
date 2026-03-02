@@ -1,7 +1,34 @@
 import pyarrow as pa
 from pyiceberg.types import *
-from datetime import datetime, date
-from pyiceberg.schema import Schema
+
+BOOLEAN_FIELDS = []
+FLOAT_FIELDS = ["latitude","longitude"]
+INTEGER_FIELDS = ["oms_data_migration_status"]
+DATE_FIELDS = []
+# DOUBLE_FIELDS = ["latitude","longitude"]
+TIMESTAMP_FIELDS = [
+        "invoice_date",
+        "exp_delivery_date",
+        "row_added_dttm",
+        "row_updated_dttm",
+        # "updated_at_new",
+    ]
+STRING_FIELDS = [
+        "status_event_id", "type", "channel", "system", "medium", "flow",
+        "order_id", "inventory_status", "shipment_status", "internal_status",
+        "customer_status", "from_location_code", "to_location_code",
+        "pickup_delivery_req_item_id", "intransit_pickup_delivery_req_item_id",
+        "line_item_id", "manifest_id", "shipment_id", "item_code",
+        "invoice_no", "picklist_id", "wh_st_empid", "wh_st_empname",
+        "driver_code", "driver_name", "driver_emp_id", "driver_contact",
+        "ass_code", "ass_name", "ass_emp_id", "ass_contact",
+        "sec_ass_code", "sec_ass_name", "sec_emp_id", "sec_contact",
+        "vehicle_no", "vehicle_name", "docking_area", "type_of_order",
+        "cust_name", "cust_mobile_num", "imei", "tracking_id", "comments",
+        "courier_name", "action", "module_name", "notification_status",
+        "order_inv_status", "additional_info", "row_added_by",
+        "row_added_empid", "shipment_tracking_id",
+    ]
 
 
 FIELD_OVERRIDES = {
@@ -78,39 +105,4 @@ FIELD_OVERRIDES = {
         "row_added_by": (StringType(), pa.string(), False),
         "row_added_empid": (StringType(), pa.string(), False),
         "shipment_tracking_id": (StringType(), pa.string(), False),
-    }
-
-
-
-
-BOOLEAN_FIELDS = []
-FLOAT_FIELDS = ["latitude","longitude"]
-INTEGER_FIELDS = ["oms_data_migration_status"]
-DATE_FIELDS = []
-# DOUBLE_FIELDS = ["latitude","longitude"]
-TIMESTAMP_FIELDS = [
-        "invoice_date",
-        "exp_delivery_date",
-        "row_added_dttm",
-        "row_updated_dttm",
-        # "updated_at_new",
-    ]
-STRING_FIELDS = [
-        "status_event_id", "type", "channel", "system", "medium", "flow",
-        "order_id", "inventory_status", "shipment_status", "internal_status",
-        "customer_status", "from_location_code", "to_location_code",
-        "pickup_delivery_req_item_id", "intransit_pickup_delivery_req_item_id",
-        "line_item_id", "manifest_id", "shipment_id", "item_code",
-        "invoice_no", "picklist_id", "wh_st_empid", "wh_st_empname",
-        "driver_code", "driver_name", "driver_emp_id", "driver_contact",
-        "ass_code", "ass_name", "ass_emp_id", "ass_contact",
-        "sec_ass_code", "sec_ass_name", "sec_emp_id", "sec_contact",
-        "vehicle_no", "vehicle_name", "docking_area", "type_of_order",
-        "cust_name", "cust_mobile_num", "imei", "tracking_id", "comments",
-        "courier_name", "action", "module_name", "notification_status",
-        "order_inv_status", "additional_info", "row_added_by",
-        "row_added_empid", "shipment_tracking_id",
-    ]
-
-
-
+}

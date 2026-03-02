@@ -1,6 +1,6 @@
 from core.catalog_client import *
 from pyiceberg.catalog import NoSuchTableError
-from insert_data import process_chunk
+from date_between.insert_data import process_chunk
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from fastapi import HTTPException
 from datetime import datetime
@@ -13,7 +13,9 @@ from pyiceberg.types import (
     BooleanType, LongType, DoubleType, DateType, IntegerType,
     TimestampType, StringType, NestedField, FloatType
 )
-from error_handler import handle_ingestion_error
+from date_between.error_handler import handle_ingestion_error
+import gc
+import psutil
 
 def load_table_identifier(namespace: str, table_name: str) -> Any:
     table_identifier = f"{namespace}.{table_name}"
@@ -52,7 +54,7 @@ def load_table_identifier(namespace: str, table_name: str) -> Any:
 def multi_executor(arrow_schema, chunks, arrow_tables, failed_chunks):
     # arrow_tables = []
     # failed_chunks = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
             executor.submit(process_chunk, chunk, arrow_schema): idx
             for idx, chunk in enumerate(chunks)
@@ -63,6 +65,9 @@ def multi_executor(arrow_schema, chunks, arrow_tables, failed_chunks):
             try:
                 tbl = future.result()
                 arrow_tables.append(tbl)
+                del tbl
+                gc.collect()
+
                 logger.info(
                     f"Chunk {idx+1}/{len(chunks)} success | rows={tbl.num_rows}"
                 )
@@ -130,7 +135,7 @@ def fetch_mysql_date_range(
     fetch_fn,
     start_date: datetime,
     end_date: datetime,
-    empty_status_code: int = 400,
+    # empty_status_code: int = 400,
 ) -> List[Any]:
 
     try:
@@ -153,10 +158,7 @@ def fetch_mysql_date_range(
                     "end_date": end_date,
                 },
             )
-            raise HTTPException(
-                status_code=empty_status_code,
-                detail="No data found in the given range",
-            )
+            return [] # 🔥 RETURN EMPTY LIST INSTEAD OF ERROR
 
         logger.info(
             "MySQL fetch success",
@@ -229,6 +231,51 @@ def get_last_date_value(namespace,table,column):
             status_code=500,
             detail=f"Failed to fetch last date value: {str(e)}")
 
+import pyarrow.compute as pc
+
+# def get_last_date_value(namespace, table, column):
+#     try:
+#         catalog = get_catalog_client()
+#         table_identifier = f"{namespace}.{table}"
+#         iceberg_table = catalog.load_table(table_identifier)
+#
+#         # Read ONLY required column
+#         arrow_table = iceberg_table.scan(
+#             selected_fields=[column]
+#         ).to_arrow()
+#
+#         if arrow_table.num_rows == 0:
+#             return {
+#                 "namespace": namespace,
+#                 "table": table,
+#                 "column": column,
+#                 "last_value": None
+#             }
+#
+#         # Compute max directly in Arrow (NO pandas)
+#         max_value = pc.max(arrow_table[column]).as_py()
+#
+#         # Cleanup early
+#         del arrow_table
+#         gc.collect()
+#
+#         if isinstance(max_value, datetime):
+#             max_value = (max_value + timedelta(seconds=1)).isoformat()
+#         else:
+#             max_value = str(max_value)
+#
+#         return {
+#             "namespace": namespace,
+#             "table": table,
+#             "column": column,
+#             "last_value": max_value
+#         }
+#
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"Failed to fetch last date value: {str(e)}"
+#         )
 
 def yesterday():
     y = datetime.now() - timedelta(days=1)
@@ -453,3 +500,14 @@ def schema(record: Dict[str, Any], field_overrides: Dict[str, tuple]):
         )
 
     return Schema(*iceberg_fields), pa.schema(arrow_fields)
+
+def get_memory_mb():
+    process = psutil.Process(os.getpid())
+    return round(process.memory_info().rss / 1024 / 1024, 2)
+
+def check_memory_limit(limit_mb=2000):
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss / 1024 / 1024
+
+    if mem > limit_mb:
+        raise MemoryError(f"Memory exceeded {limit_mb} MB")

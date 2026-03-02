@@ -1260,7 +1260,7 @@ return_masterorders_columns = [
     "updated_at",
     "created_by",
     "updated_by",
-    "multi_invoice",
+    # "multi_invoice",
 ]
 
 return_masterorders_w_columns = [
@@ -1302,7 +1302,7 @@ return_masterorders_w_columns = [
     "updated_at",
     "created_by",
     "updated_by",
-    "multi_invoice",
+    # "multi_invoice",
 
 ]
 

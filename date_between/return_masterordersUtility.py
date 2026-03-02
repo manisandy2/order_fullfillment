@@ -13,7 +13,7 @@ TIMESTAMP_FIELDS = [
     "updated_at",
 ]
 DATE_FIELDS = []
-BOOLEAN_FIELDS = []
+# BOOLEAN_FIELDS = []
 
 INTEGER_FIELDS = []
 

@@ -12,7 +12,7 @@ REQUIRED_FIELDS = ['intransit_pickupdelivery_id', 'pickup_delivery_req_item_id',
 
 TIMESTAMP_FIELDS = ['invoice_date', 'expect_delivery_pickup_dt', 'picker_added_dt',
                     'manifest_added_dt', 'exchange_invo_date', 'row_added_dt', 'row_updated_dt',
-                    'goods_received_date']
+                    ]
 BOOLEAN_FIELDS = ["ispickup_active","otp_verified_status"]
 INTEGER_FIELDS = ['item_qty', 'dimension_length', 'dimension_height', 'dimension_width',
                   'reattempt_count', 'to_location_pincode']
@@ -63,6 +63,7 @@ FIELD_OVERRIDES = {
 
     # 📦 Delivery / Status
     "expect_delivery_pickup_dt": (TimestampType(), pa.timestamp("ms"), True),
+    "goods_received_date": (TimestampType(), pa.timestamp("ms"), True),
     "customer_status": (StringType(), pa.string(), False),
     "internal_status": (StringType(), pa.string(), True),
     "inventory_status": (StringType(), pa.string(), False),
