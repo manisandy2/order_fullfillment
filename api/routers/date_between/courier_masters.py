@@ -1,0 +1,101 @@
+from core.between_date import MysqlCatalog
+from date_between.utility import *
+
+
+def courier_masters_between_date():
+
+    namespace = "order_fulfillment"
+    table_name = "courier_masters"
+    dbname = "courier_masters"
+    chunk_size = 1000
+
+
+    last_val = get_last_date_value(namespace, table_name, "created_at")
+
+    if not last_val or not last_val.get("last_value"):
+        return {"status": "NO_EXISTING_DATA"}
+
+    start_date = datetime.fromisoformat(last_val["last_value"])
+    end_date = yesterday()
+
+    validate_date_range(start_date, end_date)
+
+    tbl = load_table_identifier(namespace, table_name)
+
+    total_rows = 0
+    success_chunks = 0
+    failed_chunks = []
+    arrow_schema = None
+
+
+
+    with MysqlCatalog() as mysql:
+        rows = fetch_mysql_date_range(
+            mysql_client=mysql,
+            dbname=dbname,
+            fetch_fn=mysql.get_courier_masters_date_between,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+    if not rows:
+        return {
+            "status": "NO_DATA",
+            "rows_fetched": 0,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    _, arrow_schema = schema(rows[0], FIELD_OVERRIDES)
+
+    chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
+
+    # arrow_tables = []
+    failed_chunks = []
+    # failed_batches = []
+
+    for idx, chunk in enumerate(chunks):
+        try:
+            check_memory_limit(3000)
+            arrow_table = process_chunk(chunk, arrow_schema)
+            tbl.append(arrow_table)
+            success_chunks += 1
+            # 🔥 Cleanup immediately
+            del arrow_table
+            gc.collect()
+            # 🔥 Memory check after cleanup
+            check_memory_limit(3000)
+
+        except Exception as e:
+            failed_chunks.append({
+                "chunk_index": idx,
+                "chunk_data": chunk,
+                "error": str(e),
+            })
+
+    append_errors = handle_failed_chunks(
+        table_name=table_name,
+        failed_chunks=failed_chunks,
+        error_type="CHUNK_PROCESS_OR_APPEND_FAILED",
+
+    )
+
+
+    return {
+        "status": "COMPLETED",
+        "rows_fetched": total_rows,
+        "chunks_success": success_chunks,
+        "chunks_failed": len(failed_chunks),
+        "append_errors": append_errors,
+        "start_date": str(start_date),
+        "end_date": str(end_date),
+    }
+
+
+def run():
+    return courier_masters_between_date()
+
+
+if __name__ == "__main__":
+    print(f"🧠 Initial Memory: {get_memory_mb()} MB")
+    print(run())
+    print(f"🧠 Final Memory: {get_memory_mb()} MB")
