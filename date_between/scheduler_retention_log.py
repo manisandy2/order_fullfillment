@@ -91,5 +91,6 @@ def run():
     return scheduler_retention_log_between_date()
 
 if __name__ == "__main__":
-    result = run()
-    print(result)
+    print(f"🧠 Initial Memory: {get_memory_mb()} MB")
+    print(run())
+    print(f"🧠 Final Memory: {get_memory_mb()} MB")

@@ -1,0 +1,16 @@
+courier_masters_columns = [
+    "code",
+    "name",
+    "type",
+    "isactive",
+    "image",
+    "description",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+    "isEditable",
+    "isApiIntegrated",
+    "branch_list",
+    "branch_code_list",
+]

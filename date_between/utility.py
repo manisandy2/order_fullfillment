@@ -287,8 +287,6 @@ def clean_rows(
     timestamps_fields: Optional[List[str]] = None,
     date_fields: Optional[List[str]] = None,
     float_fields: Optional[List[str]] = None,
-
-
     field_overrides: Optional[Dict[str, tuple]] = None,
 ) -> List[Dict[str, Any]]:
 
@@ -296,6 +294,7 @@ def clean_rows(
     boolean_fields = set(boolean_fields or [])
     timestamps_fields = set(timestamps_fields or [])
     date_fields = set(date_fields or [])
+    float_fields = set(float_fields or [])
     field_overrides = field_overrides or {}
 
     protected_fields = boolean_fields | timestamps_fields | date_fields
@@ -323,7 +322,7 @@ def clean_rows(
             if val is None:
                 row[f] = False
             elif isinstance(val, bool):
-                row[f] = val
+                continue
             elif isinstance(val, (int, float)):
                 row[f] = bool(val)
             elif isinstance(val, str):
@@ -338,13 +337,14 @@ def clean_rows(
             val = row.get(f)
 
             if val in (None, ""):
-                row[f] = datetime.now()
+                row[f] = None
                 continue
 
             if isinstance(val, datetime):
                 continue
 
             parsed = None
+
             for fmt in dt_formats:
                 try:
                     parsed = datetime.strptime(str(val), fmt)
@@ -352,7 +352,7 @@ def clean_rows(
                 except Exception:
                     pass
 
-            row[f] = parsed if parsed else datetime.now()
+            row[f] = parsed # no auto datetime.now()
 
         # --------------------------------------------------
         # 3️⃣ Date fields
@@ -361,7 +361,7 @@ def clean_rows(
             val = row.get(f)
 
             if val in (None, ""):
-                row[f] = date.today()
+                row[f] = None
                 continue
 
             if isinstance(val, date) and not isinstance(val, datetime):
@@ -373,9 +373,24 @@ def clean_rows(
                     parsed = datetime.strptime(str(val), fmt).date()
                     break
                 except Exception:
-                    pass
+                    continue
 
-            row[f] = parsed if parsed else date.today()
+            row[f] = parsed
+
+        # ==================================================
+        # 4️⃣ FLOAT FIELDS (explicit handling)
+        # ==================================================
+        for f in float_fields:
+            val = row.get(f)
+
+            if val in (None, ""):
+                row[f] = None
+                continue
+
+            try:
+                row[f] = float(val)
+            except Exception:
+                row[f] = None
 
         # --------------------------------------------------
         # 4️⃣ Schema-driven normalization (CRITICAL)
@@ -383,6 +398,8 @@ def clean_rows(
         for key, val in row.items():
             if key in protected_fields:
                 continue
+
+            val = row[key]
 
             if key in field_overrides:
                 ice_type, arrow_type, is_required = field_overrides[key]
@@ -402,9 +419,6 @@ def clean_rows(
 
                 # 🔥 INTEGER / LONG
                 if pa.types.is_integer(arrow_type):
-                    if val is None or val == "":
-                        row[key] = None
-                        continue
                     try:
                         row[key] = int(val)
                     except Exception:

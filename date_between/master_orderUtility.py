@@ -1,9 +1,5 @@
 import pyarrow as pa
 from pyiceberg.types import *
-from datetime import datetime, date
-from pyiceberg.schema import Schema
-
-
 
 FIELD_OVERRIDES = {
     # Required keys

@@ -1,0 +1,18 @@
+pick_lists_columns = [
+    "picklist_id",
+    "id",
+    "allocate_picker_by",
+    "branch_code",
+    "items",
+    "pickers",
+    "items_total",
+    "pickers_total",
+    "ispickup_active",
+    "picklist_status",
+    "created_on",
+    "updated_on",
+    "created_by",
+    "updated_by",
+    "created_at",
+    "updated_at",
+]

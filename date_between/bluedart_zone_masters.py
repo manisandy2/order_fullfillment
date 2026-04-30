@@ -2,7 +2,7 @@
 from core.between_date import MysqlCatalog
 from date_between.utility import *
 from .bluedartZoneMastersUtility import *
-from date_between.utility import *
+
 
 def bluedart_zone_masters_between_date():
 
@@ -10,6 +10,7 @@ def bluedart_zone_masters_between_date():
     table_name = "bluedart_zone_masters"
     dbname = "bluedart_zone_masters"
     chunk_size = 1000
+
 
     last_val = get_last_date_value(namespace, table_name, "created_at")
 
@@ -20,6 +21,11 @@ def bluedart_zone_masters_between_date():
     end_date = yesterday()
 
     validate_date_range(start_date, end_date)
+    tbl = load_table_identifier(namespace, table_name)
+
+    total_rows = 0
+    success_chunks = 0
+    failed_chunks = []
 
     with MysqlCatalog() as mysql:
         rows = fetch_mysql_date_range(
@@ -29,6 +35,7 @@ def bluedart_zone_masters_between_date():
             start_date=start_date,
             end_date=end_date,
         )
+
 
     if not rows:
         return {
@@ -50,30 +57,18 @@ def bluedart_zone_masters_between_date():
 
     chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
 
-    tbl = load_table_identifier(namespace, table_name)
-
-    # arrow_tables = []
+    success_chunks = 0
     failed_chunks = []
-    # failed_batches = []
-
-
 
     for idx, chunk in enumerate(chunks):
-
         try:
-
             check_memory_limit(3000)
-
             arrow_table = process_chunk(chunk, arrow_schema)
-
             tbl.append(arrow_table)
-
             success_chunks += 1
-
             # 🔥 Cleanup immediately
             del arrow_table
             gc.collect()
-
             # 🔥 Memory check after cleanup
             check_memory_limit(3000)
 
@@ -106,5 +101,6 @@ def run():
     return bluedart_zone_masters_between_date()
 
 if __name__ == "__main__":
-    result = run()
-    print(result)
+    print(f"🧠 Initial Memory: {get_memory_mb()} MB")
+    print(run())
+    print(f"🧠 Final Memory: {get_memory_mb()} MB")

@@ -128,6 +128,7 @@ def master_order_between_date():
     chunk_size = 1000
 
     last_val = get_last_date_value(namespace, table_name, "created_at")
+
     if not last_val["last_value"]:
         return {"status": "NO_EXISTING_DATA"}
 
@@ -135,18 +136,11 @@ def master_order_between_date():
     end_date = yesterday()
 
     validate_date_range(start_date, end_date)
-
-    from core.db_colums import masterorder_columns
-
-    schema_keys = set(masterorder_columns) | set(BOOLEAN_FIELDS) | set(TIMESTAMP_FIELDS) | set(DATE_FIELDS)
-    dummy_row = {key: None for key in schema_keys}
-    _, arrow_schema = schema(dummy_row, FIELD_OVERRIDES)
-
     tbl = load_table_identifier(namespace, table_name)
 
-    success_chunks = 0
-    failed_chunks = 0
-    total_rows = 0
+    if not last_val["last_value"]:
+        return {"status": "NO_EXISTING_DATA"}
+
 
     with MysqlCatalog() as mysql:
 
@@ -156,54 +150,62 @@ def master_order_between_date():
             fetch_fn=mysql.get_master_order_date_between,
             start_date=start_date,
             end_date=end_date,
-            # limit=chunk_size   # IMPORTANT: Your MySQL method must support LIMIT
         )
 
-        if not rows:
-            return {
-                "status": "NO_DATA",
-                "rows_fetched": 0,
-                "start_date": start_date,
-                "end_date": end_date,
-                    }
+    if not rows:
+        return {
+            "status": "NO_DATA",
+            "rows_fetched": 0,
+            "start_date": start_date,
+            "end_date": end_date,
+                }
 
-        total_rows += len(rows)
+    clean_rows(
+        rows,
+        boolean_fields=BOOLEAN_FIELDS,
+        timestamps_fields=TIMESTAMP_FIELDS,
+        date_fields=DATE_FIELDS,
+        field_overrides=FIELD_OVERRIDES,
+    )
 
+    _, arrow_schema = schema(rows[0], FIELD_OVERRIDES)
+    chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
+
+    failed_chunks = []
+    success_chunks = 0
+
+    for idx, chunk in enumerate(chunks):
         try:
-            # Clean only this chunk
-            clean_rows(
-                rows,
-                boolean_fields=BOOLEAN_FIELDS,
-                timestamps_fields=TIMESTAMP_FIELDS,
-                date_fields=DATE_FIELDS,
-                field_overrides=FIELD_OVERRIDES,
-            )
-
-            arrow_table = process_chunk(rows, arrow_schema)
-
+            check_memory_limit(3000)
+            arrow_table = process_chunk(chunk, arrow_schema)
             tbl.append(arrow_table)
-
             success_chunks += 1
-
-            # Move cursor forward
-            start_date = max(row["created_at"] for row in rows)
-
-            # 🔥 CLEAN MEMORY
-            del rows
+            # 🔥 Cleanup immediately
             del arrow_table
             gc.collect()
+            # 🔥 Memory check after cleanup
+            check_memory_limit(3000)
 
         except Exception as e:
-            failed_chunks += 1
-            print("Chunk failed:", e)
+            failed_chunks.append({
+                "chunk_index": idx,
+                "chunk_data": chunk,
+                "error": str(e),
+            })
 
-            del rows
-            gc.collect()
+    append_errors = handle_failed_chunks(
+        table_name=table_name,
+        failed_chunks=failed_chunks,
+        error_type="CHUNK_PROCESS_OR_APPEND_FAILED",
+    )
 
     return {
-        "rows_processed": total_rows,
-        "chunks_success": success_chunks,
-        "chunks_failed": failed_chunks,
+        "rows_fetched": len(rows),
+        "start_date": start_date,
+        "end_date": end_date,
+        "chunks_total": len(chunks),
+        "chunks_failed": len(failed_chunks),
+        "append_errors": append_errors,
         "status": "COMPLETED"
     }
 
@@ -211,5 +213,6 @@ def run():
     return master_order_between_date()
 
 if __name__ == "__main__":
-    result = run()
-    print(result)
+    print(f"🧠 Initial Memory: {get_memory_mb()} MB")
+    print(run())
+    print(f"🧠 Final Memory: {get_memory_mb()} MB")

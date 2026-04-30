@@ -209,6 +209,46 @@ def add_columns(
         }
     )
 
+# @router.delete("/delete-between-dates")
+# def delete_between_dates(
+#     namespace: str = Query(...),
+#     table_name: str = Query(...),
+#     date_column: str = Query(...),
+#     start_date: str = Query(...),
+#     end_date: str = Query(...),
+# ):
+#     try:
+#         catalog = get_catalog_client()
+#         table = catalog.load_table(f"{namespace}.{table_name}")
+#
+#         # Convert input to ISO-8601 format manually
+#         start_dt = datetime.fromisoformat(start_date.replace(" ", "T"))
+#         end_dt = datetime.fromisoformat(end_date.replace(" ", "T"))
+#
+#         if start_dt > end_dt:
+#             raise HTTPException(400, "start_date must be <= end_date")
+#
+#         # Force ISO format with 'T'
+#         start_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%S")
+#         end_iso = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
+#
+#         delete_expression = (
+#             f"{date_column} >= '{start_iso}' "
+#             f"AND {date_column} <= '{end_iso}'"
+#         )
+#
+#         print("Delete expression:", delete_expression)  # Debug
+#
+#         table.delete(delete_expression)
+#
+#         return {
+#             "status": "success",
+#             "deleted_between": f"{start_iso} → {end_iso}"
+#         }
+#
+#     except Exception as e:
+#         raise HTTPException(500, str(e))
+
 @router.delete("/delete-between-dates")
 def delete_between_dates(
     namespace: str = Query(...),
@@ -221,29 +261,34 @@ def delete_between_dates(
         catalog = get_catalog_client()
         table = catalog.load_table(f"{namespace}.{table_name}")
 
-        # Convert input to ISO-8601 format manually
+        # Convert input to ISO format
         start_dt = datetime.fromisoformat(start_date.replace(" ", "T"))
         end_dt = datetime.fromisoformat(end_date.replace(" ", "T"))
 
         if start_dt > end_dt:
             raise HTTPException(400, "start_date must be <= end_date")
 
-        # Force ISO format with 'T'
         start_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%S")
         end_iso = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
 
         delete_expression = (
-            f"{date_column} >= '{start_iso}' "
-            f"AND {date_column} <= '{end_iso}'"
+            f"{date_column} >= '{start_iso}' AND {date_column} <= '{end_iso}'"
         )
 
-        print("Delete expression:", delete_expression)  # Debug
+        print("Delete expression:", delete_expression)
 
-        table.delete(delete_expression)
+        # -------- Get count before delete --------
+        filtered_table = table.scan().filter(delete_expression).to_arrow()
+        delete_count = filtered_table.num_rows
+
+        # -------- Perform delete --------
+        if delete_count > 0:
+            table.delete(delete_expression)
 
         return {
             "status": "success",
-            "deleted_between": f"{start_iso} → {end_iso}"
+            "deleted_between": f"{start_iso} → {end_iso}",
+            "deleted_count": delete_count
         }
 
     except Exception as e:

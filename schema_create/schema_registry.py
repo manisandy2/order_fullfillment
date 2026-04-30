@@ -1,7 +1,5 @@
 from routers.Iceberg_schema import *
 
-
-
 SCHEMA_REGISTRY = {
     "roles": roles,
     "schedulers": schedulers,

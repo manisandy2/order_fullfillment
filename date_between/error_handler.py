@@ -144,6 +144,17 @@ class ErrorHandler:
                 "error": f"Failed to save error records: {str(e)}"
             }
     
+    # def _create_error_table_schema(self) -> Schema:
+    #     """Create Iceberg schema for error table"""
+    #     return Schema(
+    #         NestedField(1, "original_table", StringType(), required=True),
+    #         NestedField(2, "error_type", StringType(), required=True),
+    #         NestedField(3, "error_message", StringType(), required=False),
+    #         NestedField(4, "error_timestamp", StringType(), required=True),
+    #         NestedField(5, "retry_count", LongType(), required=True),
+    #         NestedField(6, "original_data", StringType(), required=True),
+    #         NestedField(7, "record_id", StringType(), required=False),
+    #     )
     def _create_error_table_schema(self) -> Schema:
         """Create Iceberg schema for error table"""
         return Schema(

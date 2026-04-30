@@ -1,0 +1,23 @@
+hub_masters_columns = [
+    "id",
+    "store_name",
+    "state",
+    "district",
+    "store_mobile_no",
+    "store_mailid",
+    "store_shortcode",
+    "pincode",
+    "customer_code",
+    "store_address",
+    "store_address_line1",
+    "store_address_line2",
+    "store_address_line3",
+    "area_code",
+    "login_user",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+    "isactive",
+    "store_contact_person"
+]

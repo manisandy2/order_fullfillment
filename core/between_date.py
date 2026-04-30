@@ -49,6 +49,7 @@ class MysqlCatalog:
         if self.conn:
             self.conn.close()
 
+    # get all data running
     def _fetch_date_range(self, table_name: str, start_date: str, end_date: str, columns: list, date_col: str, sort_col: str) -> list:
         """Generic method to fetch data within a date range."""
 
@@ -68,6 +69,37 @@ class MysqlCatalog:
         # 🔥 RETURN LIST (NOT GENERATOR)
         rows = self.cursor.fetchall()
         return rows
+
+    # bath size
+    # def _fetch_date_range(
+    #         self,
+    #         table_name: str,
+    #         start_date: str,
+    #         end_date: str,
+    #         columns: list,
+    #         date_col: str,
+    #         sort_col: str
+    # ):
+    #
+    #     cols_str = ", ".join(columns)
+    #
+    #     query = f"""
+    #         SELECT {cols_str}
+    #         FROM `{table_name}`
+    #         WHERE {date_col} BETWEEN %s AND %s
+    #         ORDER BY {sort_col} ASC
+    #     """
+    #
+    #     if not self.conn.is_connected():
+    #         self.conn.reconnect()
+    #
+    #     self.cursor.execute(query, (start_date, end_date))
+    #
+    #     while True:
+    #         rows = self.cursor.fetchmany(5000)  # batch size
+    #         if not rows:
+    #             break
+    #         yield rows  # 🔥 THIS makes it streaming
 
 
         # except Exception as e:

@@ -8,7 +8,7 @@ def status_events_between_date():
     table_name = "status_events"
     dbname = "status_events"
     chunk_size = 1000
-    print("yes this is status events")
+
     last_val = get_last_date_value(namespace, table_name, "row_added_dttm")
     if not last_val["last_value"]:
         return {"status": "NO_EXISTING_DATA"}
@@ -74,7 +74,7 @@ def status_events_between_date():
         error_type="CHUNK_PROCESS_OR_APPEND_FAILED",
 
     )
-    print("end this is status events")
+
 
     return {
         "rows_fetched": len(rows),
@@ -90,5 +90,6 @@ def run():
     return status_events_between_date()
 
 if __name__ == "__main__":
-    result = run()
-    print(result)
+    print(f"🧠 Initial Memory: {get_memory_mb()} MB")
+    print(run())
+    print(f"🧠 Final Memory: {get_memory_mb()} MB")

@@ -10,6 +10,7 @@ def drivers_between_date():
     dbname = "drivers"
     chunk_size = 1000
 
+
     last_val = get_last_date_value(namespace, table_name, "created_at")
 
     if not last_val["last_value"]:
@@ -106,15 +107,13 @@ def drivers_between_date():
 
     )
 
+
     return {
         "rows_fetched": len(rows),
         "start_date": start_date,
         "end_date": end_date,
         "chunks_total": len(chunks),
-        # "chunks_success": len(arrow_tables),
         "chunks_failed": len(failed_chunks),
-        # "append_failed": len(failed_batches),
-        # "arrow_errors": arrow_errors,
         "append_errors": append_errors,
         "status": "COMPLETED"
     }
@@ -123,5 +122,6 @@ def run():
     return drivers_between_date()
 
 if __name__ == "__main__":
-    result = run()
-    print(result)
+    print(f"🧠 Initial Memory: {get_memory_mb()} MB")
+    print(run())
+    print(f"🧠 Final Memory: {get_memory_mb()} MB")

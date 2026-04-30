@@ -4,6 +4,7 @@ import os
 import logging
 from mysql.connector import Error
 from . import db_colums
+from typing import List, Dict, Any
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -268,7 +269,8 @@ class MysqlCatalog:
             table_name: str,
             start_date: str,
             end_date: str,
-    ):
+
+    ) -> list :
         """
         Generic streaming fetch.
         Returns generator (memory safe).
@@ -279,7 +281,7 @@ class MysqlCatalog:
 
         config = self.TABLE_CONFIG[table_name]
 
-        return self._fetch_date_range(
+        generator =  self._fetch_date_range(
             table_name=table_name,
             start_date=start_date,
             end_date=end_date,
@@ -287,6 +289,11 @@ class MysqlCatalog:
             date_col=config["date_col"],
             sort_col=config["sort_col"],
         )
+        all_rows = []
+
+        for rows in generator:
+            all_rows.extend(rows)
+        return all_rows
 
     # ===============================
     # STREAMING FETCH CORE
@@ -316,7 +323,7 @@ class MysqlCatalog:
         self.cursor.execute(query, (start_date, end_date))
 
         while True:
-            rows = self.cursor.fetchmany(5000)  # batch size
+            rows = self.cursor.fetchmany(self.BATCH_SIZE)  # batch size
             if not rows:
                 break
             yield rows  # 🔥 THIS makes it streaming

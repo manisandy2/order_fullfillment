@@ -9,18 +9,17 @@ import psutil
 # ==============================
 
 TIMEOUT_SECONDS = 300   # 5 minutes per job
-LOG_FILE = os.path.join(os.getcwd(), "ingestion_all.log")
 
 # ==============================
 # LOGGING
 # ==============================
 
 logging.basicConfig(
-    filename=LOG_FILE,
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s"
 )
 
+logger = logging.getLogger(__name__)
 # ==============================
 # MEMORY UTILITY
 # ==============================
@@ -50,13 +49,13 @@ JOBS = [
     "intransit_shipments",
     "invoice_masters",
     "manifests",
-    "masterorders",
-    "masterorders_w",
+    "master_order",
+    "master_order_W",
     "orderlineitems",
     "pick_lists",
     "pickup_deliveries",
     "pickup_delivery_items",
-    "pickup_delivery_items_w",
+    "pickup_delivery_items_W",
     "reason_messages",
     "return_masterorders",
     "return_masterorders_w",
@@ -74,48 +73,60 @@ JOBS = [
     "users",
     "vehicles",
 ]
-def run_job(module_name: str):
-    print(f"\n🚀 Running: {module_name}")
-    logging.info(f"START | {module_name}")
+# -------------------------------
+# Example Table Processing
+# -------------------------------
+# def process_table(table_name):
+#     """
+#     Process a single table.
+#     Replace this with your real logic.
+#     """
+#
+#     logger.info(f"Processing table: {table_name}")
+#
+#     # Example failure simulation
+#     if table_name == "bad_table":
+#         raise Exception("Schema mismatch detected")
+#
+#     time.sleep(1)
+#
+#     logger.info(f"Completed table: {table_name}")
 
-    mem_before = get_memory_mb()
+
+def run_job(module_name: str):
+    # env = os.environ.copy()
     start_time = time.time()
+    mem_before = get_memory_mb()
+    status = "SUCCESS"
 
     try:
         subprocess.run(
             [sys.executable, "-m", f"date_between.{module_name}"],
             check=True,
-            timeout=TIMEOUT_SECONDS
+            timeout=TIMEOUT_SECONDS,
+            # env=env,
         )
-
-        status = "SUCCESS"
 
     except subprocess.TimeoutExpired:
         status = "TIMEOUT"
         logging.error(f"{module_name} exceeded {TIMEOUT_SECONDS} seconds.")
-        print(f"⛔ TIMEOUT: {module_name}")
 
     except subprocess.CalledProcessError as e:
         status = "FAILED"
         logging.exception(f"{module_name} failed: {e}")
-        print(f"❌ FAILED: {module_name}")
 
     duration = round(time.time() - start_time, 2)
     mem_after = get_memory_mb()
 
-    print(
-        f"✅ {status} | {module_name} | "
+    message = (
+        f"{status} | {module_name} | "
         f"Time: {duration}s | "
         f"Memory Before: {mem_before} MB | "
         f"Memory After: {mem_after} MB"
     )
 
-    logging.info(
-        f"{status} | {module_name} | "
-        f"Time: {duration}s | "
-        f"MEM_BEFORE: {mem_before} MB | "
-        f"MEM_AFTER: {mem_after} MB"
-    )
+    logging.info(message)
+    return status
 
 # ==============================
 # MAIN
@@ -123,18 +134,31 @@ def run_job(module_name: str):
 
 if __name__ == "__main__":
     print("===========================================")
-    print("🔥 Iceberg Ingestion Job Runner Started")
-    print("Parent PID:", os.getpid())
-    print("Log File:", LOG_FILE)
+    print("Iceberg Ingestion Job Runner Started")
     print("===========================================")
 
     total_start = time.time()
 
+    success = 0
+    failed = 0
+
     for job in JOBS:
-        run_job(job)
+        result = run_job(job)
+
+        if result == "SUCCESS":
+            success += 1
+        else:
+            failed += 1
 
     total_duration = round(time.time() - total_start, 2)
 
     print("\n===========================================")
-    print(f"🏁 ALL JOBS COMPLETED | Total Time: {total_duration}s")
+    print(f"ALL JOBS COMPLETED | Total Time: {total_duration}s")
+    print(f"Success: {success}")
+    print(f"Failed: {failed}")
+    print(f"Total Time: {total_duration}s")
+    print("===========================================")
+
+    if failed > 0:
+        sys.exit(1)
     print("===========================================")

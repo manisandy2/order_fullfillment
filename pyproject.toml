@@ -1,5 +1,3 @@
-[tool.ruff]
-ignore = ["orderlineitems", "RUF002", "RUF003"]
 [tool.flake8]
 [tool.pylint]
 [tool.codespell]

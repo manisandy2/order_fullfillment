@@ -1,0 +1,15 @@
+[pipelines.bluedart_zone_masters]
+    namespace = "order_fulfillment"
+    table_name = "bluedart_zone_masters"
+    dbname = "bluedart_zone_masters"
+    chunk_size = 1000
+    date_column = "created_at"
+    memory_limit_mb = 3000
+
+[pipelines.orders]
+    namespace = "order_fulfillment"
+    table_name = "orders"
+    dbname = "orders"
+    chunk_size = 2000
+    date_column = "created_at"
+    memory_limit_mb = 3000

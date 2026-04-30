@@ -1,0 +1,20 @@
+installation_services_columns = [
+    "id",
+    "service_type",
+    "order_id",
+    "item_code",
+    "item_image",
+    "item_name",
+    "item_serial_no",
+    "invoice_no",
+    "installation_status",
+    "installation_sub_status",
+    "installation_rating",
+    "installation_remarks",
+    "installation_address",
+    "installation_call_booking_date",
+    "installation_completed_date",
+    "installation_call_booking_number",
+    "created_at",
+    "created_by"
+]

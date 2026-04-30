@@ -1,0 +1,21 @@
+schedulers_w_columns = [
+    "job_id",
+    "job_status",
+    "job_type",
+    "job_start_on",
+    "query_obj",
+    "input_gcp_url",
+    "output_gcp_url",
+    "error_gcp_url",
+    "error_msg",
+    "time_taken",
+    "branch_code",
+    "invoice_no",
+    "created_on",
+    "updated_on",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+
+]

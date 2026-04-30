@@ -1,6 +1,8 @@
+import gc
+from datetime import datetime
 from core.between_date import MysqlCatalog
-from .courierMastersUtility import *
 from date_between.utility import *
+from .courierMastersUtility import *
 
 def courier_masters_between_date():
 
@@ -9,15 +11,25 @@ def courier_masters_between_date():
     dbname = "courier_masters"
     chunk_size = 1000
 
+
     last_val = get_last_date_value(namespace, table_name, "created_at")
 
-    if not last_val["last_value"]:
+    if not last_val or not last_val.get("last_value"):
         return {"status": "NO_EXISTING_DATA"}
 
     start_date = datetime.fromisoformat(last_val["last_value"])
     end_date = yesterday()
-    
+
     validate_date_range(start_date, end_date)
+
+    tbl = load_table_identifier(namespace, table_name)
+
+    total_rows = 0
+    success_chunks = 0
+    failed_chunks = []
+    arrow_schema = None
+
+
 
     with MysqlCatalog() as mysql:
         rows = fetch_mysql_date_range(
@@ -35,60 +47,23 @@ def courier_masters_between_date():
             "start_date": start_date,
             "end_date": end_date,
         }
-
-    clean_rows(
-        rows,
-        boolean_fields=BOOLEAN_FIELDS,
-        timestamps_fields=TIMESTAMP_FIELDS,
-        # date_fields=DATE_FIELDS,
-        field_overrides=FIELD_OVERRIDES,
-    )
-
     _, arrow_schema = schema(rows[0], FIELD_OVERRIDES)
 
     chunks = [rows[i:i + chunk_size] for i in range(0, len(rows), chunk_size)]
-    tbl = load_table_identifier(namespace, table_name)
 
     # arrow_tables = []
     failed_chunks = []
     # failed_batches = []
-    success_chunks = 0
-    # arrow_tables, failed_chunks = multi_executor(arrow_schema, chunks, arrow_tables, failed_chunks)
-    # multi_executor(arrow_schema, chunks, arrow_tables, failed_chunks)
-    #
-    # arrow_errors = handle_failed_chunks(
-    #     table_name=table_name,
-    #     failed_chunks=failed_chunks,
-    #     error_type="ARROW_CONVERSION_FAILED",
-    # )
 
-
-
-    # failed_batches = []
-    # for batch in arrow_tables:
-    #     try:
-    #         tbl.append(batch)
-    #     except Exception as e:
-    #         failed_batches.append({
-    #             "chunk_data": batch.to_pylist(),
-    #             "error": str(e)
-    #         })
     for idx, chunk in enumerate(chunks):
-
         try:
-            # 🔥 Memory check before processing
             check_memory_limit(3000)
-
             arrow_table = process_chunk(chunk, arrow_schema)
-
             tbl.append(arrow_table)
-
             success_chunks += 1
-
             # 🔥 Cleanup immediately
             del arrow_table
             gc.collect()
-
             # 🔥 Memory check after cleanup
             check_memory_limit(3000)
 
@@ -98,6 +73,7 @@ def courier_masters_between_date():
                 "chunk_data": chunk,
                 "error": str(e),
             })
+
     append_errors = handle_failed_chunks(
         table_name=table_name,
         failed_chunks=failed_chunks,
@@ -105,21 +81,23 @@ def courier_masters_between_date():
 
     )
 
+
     return {
-        "rows_fetched": len(rows),
-        "start_date": start_date,
-        "end_date": end_date,
-        "chunks_total": len(chunks),
+        "status": "COMPLETED",
+        "rows_fetched": total_rows,
+        "chunks_success": success_chunks,
         "chunks_failed": len(failed_chunks),
-        # "arrow_errors": arrow_errors,
         "append_errors": append_errors,
-        "status": "COMPLETED"
+        "start_date": str(start_date),
+        "end_date": str(end_date),
     }
 
 
 def run():
     return courier_masters_between_date()
 
+
 if __name__ == "__main__":
-    result = run()
-    print(result)
+    print(f"🧠 Initial Memory: {get_memory_mb()} MB")
+    print(run())
+    print(f"🧠 Final Memory: {get_memory_mb()} MB")
